@@ -59,6 +59,20 @@ const I18N = {
     product_unit_price: '未含税单价',
     product_total_price: '未含税总价',
     product_empty: '暂无产品信息，请点击「添加产品」',
+    product_import_desc: '两种添加方式：单个产品点「添加产品」加入产品列表；上传 Excel 会按一票货生成一条「汇总」记录，勾选后自动把全部货物填入发票/报价单。',
+    product_download_template: '下载Excel模板',
+    product_upload_excel: '上传Excel',
+    product_template_file: '产品明细模板.xlsx',
+    product_import_success: '成功导入',
+    product_import_skipped: '行已跳过（名称为空）',
+    product_import_fail: 'Excel 解析失败，请检查文件格式',
+    product_import_no_col: '未找到「产品名称」列，请使用下载的模板',
+    product_bundle: '汇总',
+    product_bundle_items: '项',
+    product_bundle_rename: '重命名',
+    product_bundle_default: 'Excel汇总',
+    product_import_bundle: '已生成一票货汇总',
+    product_select_sets: '份',
     // Payment
     payment_title: '收款信息',
     payment_desc: '管理收款银行账户信息，保存后自动应用到生成的发票和报价单',
@@ -86,6 +100,7 @@ const I18N = {
     gen_date: '日期',
     gen_select_seller: '选择卖方',
     gen_select_buyer: '选择买方',
+    gen_delivery_address: '送货地址',
     gen_select_payment: '收款账户',
     gen_currency: '货币',
     gen_tax_rate: '税率 (%)',
@@ -108,6 +123,11 @@ const I18N = {
     gen_delivery_preview: '送货单预览',
     gen_delivery_notes: '备注',
     delivery_notes_ph: '备注信息...',
+    delivery_address_ph: '请输入送货地址...',
+    gen_ship_from: '发货地址（卖方）',
+    gen_ship_to: '收货地址（买方）',
+    delivery_ship_from_ph: '请输入发货地址...',
+    delivery_ship_to_ph: '请输入收货地址...',
     gen_no_seller: '请先在「卖方信息」中添加并保��卖方信息',
     gen_no_buyer: '请选择买方',
     gen_no_products: '请至少选择一个产品',
@@ -127,6 +147,7 @@ const I18N = {
     history_filter_invoice: '发票',
     history_filter_quotation: '报价单',
     history_filter_delivery: '送货单',
+    history_filter_summary: '汇总单',
     history_download: '下载PDF',
     history_delete: '删除',
     history_clear: '清空全部',
@@ -200,6 +221,20 @@ const I18N = {
     product_unit_price: 'Unit Price (excl. tax)',
     product_total_price: 'Amount (excl. tax)',
     product_empty: 'No products yet. Click "Add Product" to create one.',
+    product_import_desc: 'Two ways: click "Add Product" for a single item (adds to the list); upload an Excel file to create one "summary" entry per shipment — selecting it auto-fills all its goods into the Invoice/Quotation.',
+    product_download_template: 'Download Excel Template',
+    product_upload_excel: 'Upload Excel',
+    product_template_file: 'Product_Template.xlsx',
+    product_import_success: 'Imported',
+    product_import_skipped: 'rows skipped (empty name)',
+    product_import_fail: 'Failed to parse Excel. Check the file format.',
+    product_import_no_col: 'Could not find a "Product Name" column. Please use the downloaded template.',
+    product_bundle: 'BUNDLE',
+    product_bundle_items: 'items',
+    product_bundle_rename: 'Rename',
+    product_bundle_default: 'Excel Bundle',
+    product_import_bundle: 'Created one-shipment summary',
+    product_select_sets: 'Sets',
     payment_title: 'Payment Information',
     payment_desc: 'Manage bank account details for payment. Saved data auto-applies to invoices and quotations.',
     payment_add: '+ Add Account',
@@ -225,6 +260,7 @@ const I18N = {
     gen_date: 'Date',
     gen_select_seller: 'Select Seller',
     gen_select_buyer: 'Select Buyer',
+    gen_delivery_address: 'Delivery Address',
     gen_select_payment: 'Payment Account',
     gen_currency: 'Currency',
     gen_tax_rate: 'Tax Rate (%)',
@@ -247,6 +283,11 @@ const I18N = {
     gen_delivery_preview: 'Delivery Note Preview',
     gen_delivery_notes: 'Notes',
     delivery_notes_ph: 'Additional notes...',
+    delivery_address_ph: 'Enter delivery address...',
+    gen_ship_from: 'Ship From (Seller)',
+    gen_ship_to: 'Ship To (Buyer)',
+    delivery_ship_from_ph: 'Enter ship-from address...',
+    delivery_ship_to_ph: 'Enter ship-to address...',
     gen_no_seller: 'Please fill and save seller info in "Seller" tab first',
     gen_no_buyer: 'Please select a buyer',
     gen_no_products: 'Please select at least one product',
@@ -265,6 +306,7 @@ const I18N = {
     history_filter_invoice: 'Invoice',
     history_filter_quotation: 'Quotation',
     history_filter_delivery: 'Delivery',
+    history_filter_summary: 'Summary',
     history_download: 'Download PDF',
     history_delete: 'Delete',
     history_clear: 'Clear All',
@@ -714,19 +756,70 @@ function renderProductsTab() {
   }
   table.style.display = 'table';
   empty.style.display = 'none';
-  tbody.innerHTML = state.products.map((p, i) => `
-    <tr>
-      <td>${i + 1}</td><td>${escHtml(p.name)}</td><td>${escHtml(p.model || '-')}</td>
-      <td>${p.quantity}</td><td>${escHtml(p.unit || '-')}</td>
-      <td>${fmtNum(p.unitPrice)}</td><td>${fmtNum(p.quantity * p.unitPrice)}</td>
-      <td>
-        <div class="table-actions">
-          <button class="btn-icon edit" onclick="openProductModal('${p.id}')">${t('edit')}</button>
-          <button class="btn-icon delete" onclick="deleteProduct('${p.id}')">${t('delete')}</button>
-        </div>
-      </td>
-    </tr>
-  `).join('');
+  tbody.innerHTML = state.products.map((p, i) => {
+    if (p && p.type === 'bundle') {
+      const items = p.items || [];
+      const bundleTotal = items.reduce((s, it) => s + (Number(it.quantity) || 0) * (Number(it.unitPrice) || 0), 0);
+      const detailRows = items.map((it, j) => `
+        <tr>
+          <td>${j + 1}</td>
+          <td>${escHtml(it.name)}</td>
+          <td>${escHtml(it.model || '-')}</td>
+          <td>${it.quantity}</td>
+          <td>${escHtml(it.unit || '-')}</td>
+          <td>${fmtNum(it.unitPrice)}</td>
+          <td>${fmtNum((Number(it.quantity) || 0) * (Number(it.unitPrice) || 0))}</td>
+        </tr>`).join('');
+      return `
+        <tr class="bundle-row">
+          <td>${i + 1}</td>
+          <td>
+            <div class="bundle-name">
+              <span class="bundle-toggle" id="bt-${p.id}" onclick="toggleBundleDetail('${p.id}')">▸</span>
+              <input class="bundle-name-input" value="${escHtml(p.name)}"
+                onchange="renameBundleInline('${p.id}', this.value)"
+                onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"
+                onclick="event.stopPropagation()" title="${t('product_bundle_rename')}" />
+              <span class="bundle-badge">${t('product_bundle')}</span>
+            </div>
+          </td>
+          <td colspan="4" class="bundle-summary">${items.length} ${t('product_bundle_items')} · ${fmtNum(bundleTotal)}</td>
+          <td class="bundle-total">${fmtNum(bundleTotal)}</td>
+          <td>
+            <div class="table-actions">
+              <button class="btn-icon edit" onclick="renameBundle('${p.id}')">${t('product_bundle_rename')}</button>
+              <button class="btn-icon delete" onclick="deleteProduct('${p.id}')">${t('delete')}</button>
+            </div>
+          </td>
+        </tr>
+        <tr class="bundle-detail-row" id="bd-${p.id}" style="display:none">
+          <td colspan="8">
+            <table class="data-table bundle-detail-table">
+              <thead>
+                <tr>
+                  <th>#</th><th>${t('product_name')}</th><th>${t('product_model')}</th>
+                  <th>${t('product_qty')}</th><th>${t('product_unit')}</th>
+                  <th>${t('product_unit_price')}</th><th>${t('product_total_price')}</th>
+                </tr>
+              </thead>
+              <tbody>${detailRows}</tbody>
+            </table>
+          </td>
+        </tr>`;
+    }
+    return `
+      <tr>
+        <td>${i + 1}</td><td>${escHtml(p.name)}</td><td>${escHtml(p.model || '-')}</td>
+        <td>${p.quantity}</td><td>${escHtml(p.unit || '-')}</td>
+        <td>${fmtNum(p.unitPrice)}</td><td>${fmtNum(p.quantity * p.unitPrice)}</td>
+        <td>
+          <div class="table-actions">
+            <button class="btn-icon edit" onclick="openProductModal('${p.id}')">${t('edit')}</button>
+            <button class="btn-icon delete" onclick="deleteProduct('${p.id}')">${t('delete')}</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
 }
 
 function openProductModal(id) {
@@ -791,6 +884,188 @@ function deleteProduct(id) {
   state.deliverySelectedProducts.delete(id);
   saveAll();
   renderProductsTab();
+}
+
+// Expand a bundle's contained items (product tab).
+function toggleBundleDetail(id) {
+  const row = document.getElementById('bd-' + id);
+  const arrow = document.getElementById('bt-' + id);
+  if (!row) return;
+  const hidden = row.style.display === 'none';
+  row.style.display = hidden ? 'table-row' : 'none';
+  if (arrow) arrow.textContent = hidden ? '▾' : '▸';
+}
+
+// Rename a bundle summary (product tab).
+function renameBundle(id) {
+  const p = state.products.find(x => x.id === id);
+  if (!p) return;
+  const name = window.prompt(lang === 'zh' ? '请输入汇总名称' : 'Enter summary name', p.name || '');
+  if (name && name.trim()) {
+    p.name = name.trim();
+    saveAll();
+    renderProductsTab();
+  }
+}
+
+// Rename a bundle inline from the editable input in the product list.
+function renameBundleInline(id, val) {
+  const p = state.products.find(x => x.id === id);
+  if (!p) return;
+  const name = (val || '').trim();
+  if (name) {
+    p.name = name;
+    saveAll();
+  }
+  renderProductsTab();
+}
+
+// Flatten the selected products into invoice/quotation/delivery line items.
+// A bundle expands into one row per contained item, multiplied by its "sets"
+// value (stored in the mode's quantities override map). Singular products pass
+// through unchanged.
+function flattenProducts(products, multMap) {
+  const out = [];
+  for (const p of products) {
+    if (!p) continue;
+    if (p.type === 'bundle') {
+      const mult = (multMap && multMap[p.id] !== undefined) ? Math.max(1, parseInt(multMap[p.id]) || 1) : 1;
+      for (const it of (p.items || [])) {
+        out.push({
+          name: it.name,
+          model: it.model,
+          quantity: (Number(it.quantity) || 0) * mult,
+          unit: it.unit,
+          unitPrice: Number(it.unitPrice) || 0
+        });
+      }
+    } else {
+      const qty = (multMap && multMap[p.id] !== undefined)
+        ? Math.max(1, parseInt(multMap[p.id]) || 1)
+        : (p.quantity || 0);
+      out.push({
+        name: p.name,
+        model: p.model,
+        quantity: qty,
+        unit: p.unit,
+        unitPrice: p.unitPrice
+      });
+    }
+  }
+  return out;
+}
+
+// ============ Product Excel Template & Bulk Import ============
+function downloadProductTemplate() {
+  if (typeof XLSX === 'undefined') {
+    showToast('Error: Excel library not loaded. Please refresh.', 5000);
+    return;
+  }
+  const headers = ['产品名称', '型号', '数量', '单位', '未含税单价'];
+  // a few empty example rows so users see the layout (empty name => skipped on import)
+  const data = [headers, ['', '', '', '', ''], ['', '', '', '', ''], ['', '', '', '', '']];
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [{ wch: 24 }, { wch: 16 }, { wch: 10 }, { wch: 10 }, { wch: 14 }];
+
+  const instr = [
+    ['填写说明 / Instructions'],
+    ['产品名称 (Product Name) — 必填 / required'],
+    ['型号 (Model) — 选填 / optional'],
+    ['数量 (Quantity) — 必填，填数字 / required, number'],
+    ['单位 (Unit) — 选填，如 pcs/set/kg / optional'],
+    ['未含税单价 (Unit Price, excl. tax) — 必填，填数字 / required, number'],
+    ['请勿修改表头行；名称列为空的行将被忽略。'],
+    ['Do not modify the header row; rows with empty name are ignored.']
+  ];
+  const wsInstr = XLSX.utils.aoa_to_sheet(instr);
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '产品明细');
+  XLSX.utils.book_append_sheet(wb, wsInstr, '填写说明');
+  XLSX.writeFile(wb, t('product_template_file'));
+}
+
+function mapProductColumns(header) {
+  const find = (candidates) => {
+    for (let i = 0; i < header.length; i++) {
+      const h = String(header[i] || '').toLowerCase();
+      if (candidates.some(c => h.includes(c.toLowerCase()))) return i;
+    }
+    return -1;
+  };
+  return {
+    name: find(['产品名称', 'product name', 'name']),
+    model: find(['型号', 'model']),
+    qty: find(['数量', 'quantity', 'qty']),
+    unit: find(['单位', 'unit']),
+    unitPrice: find(['未含税单价', '单价', 'unit price', 'price']),
+  };
+}
+
+function handleProductFileUpload(file) {
+  if (typeof XLSX === 'undefined') {
+    showToast('Error: Excel library not loaded. Please refresh.', 5000);
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, { type: 'array' });
+      // prefer the sheet whose header contains a product-name column
+      let targetName = wb.SheetNames[0];
+      for (const name of wb.SheetNames) {
+        const h = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: false })[0] || [];
+        if (mapProductColumns(h).name >= 0) { targetName = name; break; }
+      }
+      const ws = wb.Sheets[targetName];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+      if (!rows.length) { showToast(t('product_import_fail'), 5000); return; }
+      const col = mapProductColumns(rows[0]);
+      if (col.name < 0) { showToast(t('product_import_no_col'), 5000); return; }
+
+      let added = 0, skipped = 0;
+      const parsed = [];
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        const name = String(row[col.name] ?? '').trim();
+        if (!name) { skipped++; continue; }
+        const model = String(row[col.model] ?? '').trim();
+        const quantity = parseFloat(String(row[col.qty] ?? '').replace(/,/g, '')) || 0;
+        const unit = String(row[col.unit] ?? '').trim() || 'pcs';
+        const unitPrice = parseFloat(String(row[col.unitPrice] ?? '').replace(/,/g, '')) || 0;
+        parsed.push({ name, model, quantity, unit, unitPrice });
+        added++;
+      }
+
+      if (parsed.length === 0) {
+        showToast(lang === 'zh' ? '没有有效产品行（名称为空）' : 'No valid product rows (empty name)', 5000);
+        return;
+      }
+      // Excel upload = one shipment ("一票货") -> produce a SINGLE summary entry
+      // (a "bundle") in the product list. The bundle is selectable; when chosen in
+      // the Invoice / Quotation interface, all its goods auto-fill the line items.
+      if (skipped) {
+        showToast(`${lang === 'zh' ? '已忽略' : 'Ignored'} ${skipped} ${t('product_import_skipped')}`, 3000);
+      }
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const bundle = {
+        id: uid(),
+        type: 'bundle',
+        name: `${t('product_bundle_default')} ${dateStr}`,
+        items: parsed
+      };
+      state.products.push(bundle);
+      saveAll();
+      renderProductsTab();
+      const msg = `${t('product_import_bundle')}（${parsed.length} ${t('product_bundle_items')}）`;
+      showToast(msg, 4000);
+    } catch (err) {
+      console.error('Product Excel import error:', err);
+      showToast(t('product_import_fail'), 5000);
+    }
+  };
+  reader.readAsArrayBuffer(file);
 }
 
 // ============ Generate Invoice Tab ============
@@ -861,22 +1136,50 @@ function renderProductSelectList(containerId, emptyId, selectedSet, mode) {
   const cfg = getModeConfig(mode);
   container.innerHTML = state.products.map(p => {
     const checked = selectedSet.has(p.id) ? 'checked' : '';
-    const qty = cfg.quantities[p.id] !== undefined ? cfg.quantities[p.id] : (p.quantity || 0);
-    const total = qty * (p.unitPrice || 0);
-    return `
-      <label class="product-select-item ${checked ? 'selected' : ''}" data-pid="${p.id}">
-        <input type="checkbox" ${checked} onchange="toggleProduct('${p.id}', this.checked, '${mode}')">
-        <div class="product-select-info">
-          <div class="product-select-name">${escHtml(p.name)}</div>
-          <div class="product-select-meta">${escHtml(p.model || '-')} &middot; ${escHtml(p.unit || '')} &middot; ${fmtNum(p.unitPrice)}</div>
-        </div>
-        <div class="product-select-qty">
-          <span class="qty-label">Qty:</span>
+    const isBundle = p && p.type === 'bundle';
+    let nameHtml, metaHtml, qtyHtml;
+    if (isBundle) {
+      const items = p.items || [];
+      const count = items.length;
+      const bundleTotal = items.reduce((s, it) => s + (Number(it.quantity) || 0) * (Number(it.unitPrice) || 0), 0);
+      const sets = cfg.quantities[p.id] !== undefined ? cfg.quantities[p.id] : 1;
+      const qty = Math.max(1, parseInt(sets) || 1);
+      nameHtml = `📦 ${escHtml(p.name)} <span class="bundle-badge">${t('product_bundle')}</span>`;
+      metaHtml = `${count} ${t('product_bundle_items')} &middot; ${fmtNum(bundleTotal)}`;
+      qtyHtml = `
+        <span class="qty-label">${t('product_select_sets')}:</span>
+        <div class="qty-stepper">
+          <button type="button" class="qty-btn" onclick="stepProductQty('${p.id}', -1, '${mode}')">&minus;</button>
           <input type="number" class="qty-input" value="${qty}" min="1" step="1"
             onchange="changeProductQty('${p.id}', this.value, '${mode}')"
             onclick="event.stopPropagation()">
-          <span class="qty-total">= ${fmtNum(total)}</span>
+          <button type="button" class="qty-btn" onclick="stepProductQty('${p.id}', 1, '${mode}')">+</button>
         </div>
+        <span class="qty-total">= ${fmtNum(bundleTotal * qty)}</span>`;
+    } else {
+      const qty = cfg.quantities[p.id] !== undefined ? cfg.quantities[p.id] : (p.quantity || 0);
+      const total = qty * (p.unitPrice || 0);
+      nameHtml = escHtml(p.name);
+      metaHtml = `${escHtml(p.model || '-')} &middot; ${escHtml(p.unit || '')} &middot; ${fmtNum(p.unitPrice)}`;
+      qtyHtml = `
+        <span class="qty-label">Qty:</span>
+        <div class="qty-stepper">
+          <button type="button" class="qty-btn" onclick="stepProductQty('${p.id}', -1, '${mode}')">&minus;</button>
+          <input type="number" class="qty-input" value="${qty}" min="1" step="1"
+            onchange="changeProductQty('${p.id}', this.value, '${mode}')"
+            onclick="event.stopPropagation()">
+          <button type="button" class="qty-btn" onclick="stepProductQty('${p.id}', 1, '${mode}')">+</button>
+        </div>
+        <span class="qty-total">= ${fmtNum(total)}</span>`;
+    }
+    return `
+      <label class="product-select-item ${checked ? 'selected' : ''} ${isBundle ? 'is-bundle' : ''}" data-pid="${p.id}">
+        <input type="checkbox" ${checked} onchange="toggleProduct('${p.id}', this.checked, '${mode}')">
+        <div class="product-select-info">
+          <div class="product-select-name">${nameHtml}</div>
+          <div class="product-select-meta">${metaHtml}</div>
+        </div>
+        <div class="product-select-qty">${qtyHtml}</div>
       </label>
     `;
   }).join('');
@@ -896,6 +1199,18 @@ function changeProductQty(id, val, mode) {
   cfg.onUpdate();
 }
 
+// Increase/decrease the quantity (or "sets" for a bundle) via +/- buttons.
+function stepProductQty(id, delta, mode) {
+  const cfg = getModeConfig(mode);
+  const p = state.products.find(x => x.id === id);
+  const def = (p && p.type === 'bundle') ? 1 : (p ? (p.quantity || 0) : 1);
+  const current = cfg.quantities[id] !== undefined ? cfg.quantities[id] : def;
+  const next = Math.max(1, (parseInt(current) || 1) + delta);
+  cfg.quantities[id] = next;
+  renderProductSelectList(cfg.containerId, cfg.emptyId, cfg.selectedProducts, mode);
+  cfg.onUpdate();
+}
+
 function toggleProduct(id, checked, mode) {
   const cfg = getModeConfig(mode);
   if (checked) cfg.selectedProducts.add(id); else { cfg.selectedProducts.delete(id); delete cfg.quantities[id]; }
@@ -905,7 +1220,8 @@ function toggleProduct(id, checked, mode) {
 
 function updateInvoiceSummary() {
   const selected = state.products.filter(p => state.invoiceSelectedProducts.has(p.id));
-  const total = selected.reduce((s, p) => s + getProductQty(p, 'invoice') * (p.unitPrice || 0), 0);
+  const resolved = flattenProducts(selected, state.invoiceQuantities);
+  const total = resolved.reduce((s, p) => s + (Number(p.quantity) || 0) * (Number(p.unitPrice) || 0), 0);
   const taxRate = parseFloat(document.getElementById('invoiceTaxRate').value) || 0;
   const dpp = taxRate > 0 ? total * taxRate / (taxRate + 1) : total;
   const ppn = total * taxRate / 100;
@@ -926,8 +1242,8 @@ function renderInvoicePreview() {
   const seller = state.sellers.find(s => s.id === sellerId);
   const buyer = state.buyers.find(b => b.id === buyerId);
   const selected = state.products.filter(p => state.invoiceSelectedProducts.has(p.id));
-  const resolved = selected.map(p => ({ ...p, quantity: getProductQty(p, 'invoice') }));
-  const total = resolved.reduce((s, p) => s + (p.quantity || 0) * (p.unitPrice || 0), 0);
+  const resolved = flattenProducts(selected, state.invoiceQuantities);
+  const total = resolved.reduce((s, p) => s + (Number(p.quantity) || 0) * (Number(p.unitPrice) || 0), 0);
   const taxRate = parseFloat(document.getElementById('invoiceTaxRate').value) || 0;
   const dpp = taxRate > 0 ? total * taxRate / (taxRate + 1) : total;
   const ppn = total * taxRate / 100;
@@ -935,7 +1251,7 @@ function renderInvoicePreview() {
   const invDate = document.getElementById('invoiceDate').value;
   const payment = seller || null;
 
-  if (!seller && !buyer && selected.length === 0) {
+  if (!seller && !buyer && state.invoiceSelectedProducts.size === 0) {
     preview.innerHTML = `<div class="invoice-empty-preview">${t('gen_invoice_desc')}</div>`;
     return;
   }
@@ -959,7 +1275,8 @@ function renderGenerateQuotationTab() {
 
 function updateQuotationSummary() {
   const selected = state.products.filter(p => state.quotationSelectedProducts.has(p.id));
-  const total = selected.reduce((s, p) => s + getProductQty(p, 'quotation') * (p.unitPrice || 0), 0);
+  const resolved = flattenProducts(selected, state.quotationQuantities);
+  const total = resolved.reduce((s, p) => s + (Number(p.quantity) || 0) * (Number(p.unitPrice) || 0), 0);
   const taxRate = parseFloat(document.getElementById('quotationTaxRate').value) || 0;
   const dpp = taxRate > 0 ? total * taxRate / (taxRate + 1) : total;
   const ppn = total * taxRate / 100;
@@ -980,8 +1297,8 @@ function renderQuotationPreview() {
   const seller = state.sellers.find(s => s.id === sellerId);
   const buyer = state.buyers.find(b => b.id === buyerId);
   const selected = state.products.filter(p => state.quotationSelectedProducts.has(p.id));
-  const resolved = selected.map(p => ({ ...p, quantity: getProductQty(p, 'quotation') }));
-  const total = resolved.reduce((s, p) => s + (p.quantity || 0) * (p.unitPrice || 0), 0);
+  const resolved = flattenProducts(selected, state.quotationQuantities);
+  const total = resolved.reduce((s, p) => s + (Number(p.quantity) || 0) * (Number(p.unitPrice) || 0), 0);
   const taxRate = parseFloat(document.getElementById('quotationTaxRate').value) || 0;
   const dpp = taxRate > 0 ? total * taxRate / (taxRate + 1) : total;
   const ppn = total * taxRate / 100;
@@ -989,7 +1306,7 @@ function renderQuotationPreview() {
   const quotDate = document.getElementById('quotationDate').value;
   const payment = seller || null;
 
-  if (!seller && !buyer && selected.length === 0) {
+  if (!seller && !buyer && state.quotationSelectedProducts.size === 0) {
     preview.innerHTML = `<div class="invoice-empty-preview">${t('gen_quotation_desc')}</div>`;
     return;
   }
@@ -1035,14 +1352,16 @@ function renderDeliveryPreview() {
   const seller = state.sellers.find(s => s.id === sellerId);
   const buyer = state.buyers.find(b => b.id === buyerId);
   const selected = state.products.filter(p => state.deliverySelectedProducts.has(p.id));
-  const resolved = selected.map(p => ({ ...p, quantity: getProductQty(p, 'delivery') }));
+  const resolved = flattenProducts(selected, state.deliveryQuantities);
   const notes = document.getElementById('deliveryNotes').value;
+  const shipFrom = document.getElementById('deliveryShipFrom').value;
+  const shipTo = document.getElementById('deliveryShipTo').value;
 
-  if (!seller && !buyer && selected.length === 0) {
+  if (!seller && !buyer && state.deliverySelectedProducts.size === 0) {
     preview.innerHTML = `<div class="invoice-empty-preview">${t('gen_delivery_desc')}</div>`;
     return;
   }
-  preview.innerHTML = buildDeliveryHTML(seller, buyer, resolved, { notes, seal: state.sealData['delivery'], signature: state.signatureData['delivery'] });
+  preview.innerHTML = buildDeliveryHTML(seller, buyer, resolved, { notes, shipFrom, shipTo, seal: state.sealData['delivery'], signature: state.signatureData['delivery'] });
 }
 
 function buildDeliveryHTML(seller, buyer, products, opts) {
@@ -1059,14 +1378,21 @@ function buildDeliveryHTML(seller, buyer, products, opts) {
     </div>
   ` : '';
 
+  const shipperHTML = seller ? `
+    <div class="invoice-party">
+      <div class="invoice-party-label">Ship From / 发货方</div>
+      <div class="invoice-party-name">${escHtml(seller.name || '')}</div>
+      ${opts.shipFrom ? `<div class="invoice-party-detail">${escHtml(opts.shipFrom)}</div>` : (seller.address ? `<div class="invoice-party-detail">Address: ${escHtml(seller.address)}</div>` : '')}
+    </div>
+  ` : `<div class="invoice-party"><div class="invoice-party-label">Ship From / 发货方</div><div class="invoice-party-detail">&mdash;</div></div>`;
+
   const receiverHTML = buyer ? `
     <div class="invoice-party">
-      <div class="invoice-party-label">Ship To</div>
+      <div class="invoice-party-label">Ship To / 收货方</div>
       <div class="invoice-party-name">${escHtml(buyer.name || '')}</div>
-      ${buyer.address ? `<div class="invoice-party-detail">Address: ${escHtml(buyer.address)}</div>` : ''}
-      ${buyer.npwp ? `<div class="invoice-party-detail">NPWP: ${escHtml(buyer.npwp)}</div>` : ''}
+      ${opts.shipTo ? `<div class="invoice-party-detail">${escHtml(opts.shipTo)}</div>` : (buyer.address ? `<div class="invoice-party-detail">Address: ${escHtml(buyer.address)}</div>` : '')}
     </div>
-  ` : `<div class="invoice-party"><div class="invoice-party-label">Ship To</div><div class="invoice-party-detail">&mdash;</div></div>`;
+  ` : `<div class="invoice-party"><div class="invoice-party-label">Ship To / 收货方</div><div class="invoice-party-detail">&mdash;</div></div>`;
 
   const productRows = products.map((p, i) => `
     <tr>
@@ -1129,8 +1455,9 @@ function buildDeliveryHTML(seller, buyer, products, opts) {
         </div>
       </div>
 
-      <!-- Receiver -->
+      <!-- Parties: Ship From & Ship To -->
       <div class="invoice-parties">
+        ${shipperHTML}
         ${receiverHTML}
       </div>
 
@@ -1186,12 +1513,14 @@ async function generateDeliveryPDF() {
 
   const seller = state.sellers.find(s => s.id === sellerId);
   const buyer = state.buyers.find(b => b.id === buyerId);
-  const resolved = selected.map(p => ({ ...p, quantity: getProductQty(p, 'delivery') }));
+  const resolved = flattenProducts(selected, state.deliveryQuantities);
   const notes = document.getElementById('deliveryNotes').value;
+  const shipFrom = document.getElementById('deliveryShipFrom').value;
+  const shipTo = document.getElementById('deliveryShipTo').value;
   const docNo = document.getElementById('deliveryNo').value;
   const docDate = document.getElementById('deliveryDate').value;
 
-  const html = buildDeliveryHTML(seller, buyer, resolved, { notes, seal: state.sealData['delivery'], signature: state.signatureData['delivery'] });
+  const html = buildDeliveryHTML(seller, buyer, resolved, { notes, shipFrom, shipTo, seal: state.sealData['delivery'], signature: state.signatureData['delivery'] });
 
   const container = document.createElement('div');
   container.style.cssText = 'position:fixed;left:0;top:0;width:210mm;z-index:-1;';
@@ -1245,6 +1574,8 @@ async function generateDeliveryPDF() {
       sellerName: seller ? seller.name : '',
       buyerName: buyer ? buyer.name : '',
       notes: notes,
+      shipFrom: shipFrom,
+      shipTo: shipTo,
       seal: state.sealData['delivery'] || '',
       signature: state.signatureData['delivery'] || '',
       createdAt: new Date().toISOString(),
@@ -1459,7 +1790,8 @@ function renderHistoryTab() {
         ? '<span class="history-badge quotation">QUOTATION</span>'
         : '<span class="history-badge delivery">DELIVERY</span>';
     const dateStr = d.date ? new Date(d.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
-    const amountHTML = d.type === 'delivery' ? '' : `<span class="history-item-amount">${escHtml(fmtCurrency(d.grand, d.currency || 'IDR'))}</span>`;
+    const amountHTML = (d.type === 'delivery') ? '' : `<span class="history-item-amount">${escHtml(fmtCurrency(d.grand, d.currency || 'IDR'))}</span>`;
+    const metaLine = `<span>${escHtml(d.sellerName || '—')} &rarr; ${escHtml(d.buyerName || '—')}</span>`;
     return `
       <div class="history-item">
         <div class="history-item-left">
@@ -1468,7 +1800,7 @@ function renderHistoryTab() {
             <div class="history-item-no">${escHtml(d.docNo || '—')}</div>
             <div class="history-item-meta">
               <span>${dateStr}</span>
-              <span>${escHtml(d.sellerName || '—')} → ${escHtml(d.buyerName || '—')}</span>
+              ${metaLine}
               ${amountHTML}
             </div>
           </div>
@@ -1563,11 +1895,11 @@ async function downloadHistoryDocument(docId) {
   const seller = state.sellers.find(s => s.id === doc.sellerId);
   const buyer = state.buyers.find(b => b.id === doc.buyerId);
   const payment = seller || null;
-  const products = state.products.filter(p => doc.productIds.includes(p.id));
+  const products = flattenProducts(state.products.filter(p => doc.productIds.includes(p.id)), null);
 
   let html;
   if (doc.type === 'delivery') {
-    html = buildDeliveryHTML(seller, buyer, products, { notes: doc.notes || '', docNo: doc.docNo, docDate: doc.date, seal: doc.seal, signature: doc.signature });
+    html = buildDeliveryHTML(seller, buyer, products, { notes: doc.notes || '', shipFrom: doc.shipFrom || '', shipTo: doc.shipTo || doc.deliveryAddress || '', docNo: doc.docNo, docDate: doc.date, seal: doc.seal, signature: doc.signature });
   } else {
     html = buildDocumentHTML(seller, buyer, products, {
       total: doc.total, dpp: doc.dpp, ppn: doc.ppn, grand: doc.grand,
@@ -1611,7 +1943,7 @@ async function downloadHistoryDocument(docId) {
       pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
       heightLeft -= pageContentHeight;
     }
-    const prefix = doc.type === 'invoice' ? 'Invoice' : doc.type === 'quotation' ? 'Quotation' : 'Delivery';
+    const prefix = doc.type === 'invoice' ? 'Invoice' : doc.type === 'quotation' ? 'Quotation' : doc.type === 'delivery' ? 'Delivery' : 'Summary';
     pdf.save(`${prefix}_${doc.docNo || docId}.pdf`.replace(/[\\/:*?"<>|]/g, '_'));
   } catch (err) {
     showToast('PDF Error: ' + (err.message || 'Unknown'), 6000);
@@ -1654,8 +1986,8 @@ async function generatePDF(mode) {
   const seller = state.sellers.find(s => s.id === sellerId);
   const buyer = state.buyers.find(b => b.id === buyerId);
   const payment = seller || null;
-  const resolved = selected.map(p => ({ ...p, quantity: getProductQty(p, mode) }));
-  const total = resolved.reduce((s, p) => s + (p.quantity || 0) * (p.unitPrice || 0), 0);
+  const resolved = flattenProducts(selected, isInvoice ? state.invoiceQuantities : state.quotationQuantities);
+  const total = resolved.reduce((s, p) => s + (Number(p.quantity) || 0) * (Number(p.unitPrice) || 0), 0);
   const taxRate = parseFloat(document.getElementById(isInvoice ? 'invoiceTaxRate' : 'quotationTaxRate').value) || 0;
   const dpp = taxRate > 0 ? total * taxRate / (taxRate + 1) : total;
   const ppn = total * taxRate / 100;
@@ -1891,6 +2223,15 @@ function init() {
 
   // Products
   document.getElementById('productAddBtn').addEventListener('click', () => openProductModal());
+  document.getElementById('productTemplateBtn').addEventListener('click', downloadProductTemplate);
+  document.getElementById('productUploadBtn').addEventListener('click', () => {
+    document.getElementById('productFileInput').click();
+  });
+  document.getElementById('productFileInput').addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (file) handleProductFileUpload(file);
+    e.target.value = ''; // allow re-uploading the same file
+  });
   document.getElementById('productSaveModalBtn').addEventListener('click', saveProduct);
   document.getElementById('productQty').addEventListener('input', updateProductTotal);
   document.getElementById('productUnitPrice').addEventListener('input', updateProductTotal);
@@ -1914,8 +2255,24 @@ function init() {
   document.getElementById('generateQuotationPdfBtn').addEventListener('click', generateQuotationPDF);
 
   // Generate Delivery Note
-  document.getElementById('deliverySellerSelect').addEventListener('change', renderDeliveryPreview);
-  document.getElementById('deliveryBuyerSelect').addEventListener('change', renderDeliveryPreview);
+  document.getElementById('deliverySellerSelect').addEventListener('change', (e) => {
+    const addrEl = document.getElementById('deliveryShipFrom');
+    if (addrEl && !addrEl.value.trim()) {
+      const s = state.sellers.find(x => x.id === e.target.value);
+      if (s && s.address) addrEl.value = s.address;
+    }
+    renderDeliveryPreview();
+  });
+  document.getElementById('deliveryBuyerSelect').addEventListener('change', (e) => {
+    const addrEl = document.getElementById('deliveryShipTo');
+    if (addrEl && !addrEl.value.trim()) {
+      const b = state.buyers.find(x => x.id === e.target.value);
+      if (b && b.address) addrEl.value = b.address;
+    }
+    renderDeliveryPreview();
+  });
+  document.getElementById('deliveryShipFrom').addEventListener('input', renderDeliveryPreview);
+  document.getElementById('deliveryShipTo').addEventListener('input', renderDeliveryPreview);
   document.getElementById('deliveryNo').addEventListener('input', renderDeliveryPreview);
   document.getElementById('deliveryDate').addEventListener('change', renderDeliveryPreview);
   document.getElementById('deliveryNotes').addEventListener('input', renderDeliveryPreview);

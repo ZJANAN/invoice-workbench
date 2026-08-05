@@ -193,6 +193,24 @@ body {
   margin-top: 4px;
 }
 
+.section-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: var(--bg-secondary, #f1f5f9);
+  border-left: 3px solid var(--primary, #2563eb);
+  border-radius: 4px;
+  line-height: 1.5;
+}
+
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
 /* --- Card --- */
 .card {
   background: var(--card-bg);
@@ -745,6 +763,34 @@ body {
   font-weight: 600;
   color: var(--text);
 }
+.product-select-qty .qty-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.product-select-qty .qty-btn {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 4px;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+.product-select-qty .qty-btn:hover {
+  background: #eef2ff;
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.product-select-qty .qty-btn:active {
+  background: #e0e7ff;
+}
 .product-select-qty .qty-input:focus {
   outline: none;
   border-color: var(--primary);
@@ -989,6 +1035,8 @@ body {
   font-weight: 800;
   color: #1e293b;
 }
+
+/* Goods Summary (汇总单) removed — Excel upload now adds products to the list only */
 
 .invoice-terms {
   margin-top: 30px;
@@ -1398,4 +1446,75 @@ body {
   font-size: 11px;
   color: #94a3b8;
   margin-top: 2px;
+}
+
+/* ============ Product Bundle (一票货汇总) ============ */
+.bundle-row .bundle-name {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+}
+.bundle-toggle {
+  display: inline-block;
+  width: 12px;
+  color: #6d28d9;
+  font-size: 12px;
+  cursor: pointer;
+}
+.bundle-name-input {
+  border: 1px solid transparent;
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  color: inherit;
+  padding: 2px 6px;
+  border-radius: 4px;
+  min-width: 140px;
+  max-width: 320px;
+}
+.bundle-name-input:hover {
+  border-color: #ddd6fe;
+  background: #faf5ff;
+}
+.bundle-name-input:focus {
+  outline: none;
+  border-color: #6d28d9;
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(109,40,217,0.15);
+}
+.bundle-badge {
+  background: #ede9fe;
+  color: #6d28d9;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.bundle-summary {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.bundle-total {
+  font-weight: 700;
+}
+.bundle-detail-row td {
+  padding: 0 !important;
+  background: #f8fafc;
+}
+.bundle-detail-table {
+  margin: 8px 16px;
+  font-size: 12px;
+}
+.bundle-detail-table th {
+  background: #eef2ff;
+  font-size: 12px;
+}
+.product-select-item.is-bundle {
+  border-color: #c4b5fd;
+  background: #faf5ff;
+}
+.product-select-item.is-bundle .product-select-name {
+  font-weight: 600;
 }

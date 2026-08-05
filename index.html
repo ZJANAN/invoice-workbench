@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="css/styles.css">
   <script src="lib/jspdf.umd.min.js"></script>
   <script src="lib/html2canvas.min.js"></script>
+  <script src="lib/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -107,9 +108,15 @@
     <div class="section-header">
       <div>
         <h2 data-i18n="product_title">产品明细</h2>
-        <p class="section-desc" data-i18n="product_desc">管理产品信息列表，用于生��报价单和发票</p>
+        <p class="section-desc" data-i18n="product_desc">管理产品信息列表，用于生成报价单和发票</p>
+        <p class="section-hint" data-i18n="product_import_desc">两种方式添加产品：单个产品点击「添加产品」；批量导入请先下载 Excel 模板，填写后点击「上传 Excel」。</p>
       </div>
-      <button id="productAddBtn" class="btn btn-primary" data-i18n="product_add">+ 添加产品</button>
+      <div class="header-actions">
+        <button id="productAddBtn" class="btn btn-primary" data-i18n="product_add">+ 添加产品</button>
+        <button id="productTemplateBtn" class="btn btn-outline" data-i18n="product_download_template">下载Excel模板</button>
+        <button id="productUploadBtn" class="btn btn-outline" data-i18n="product_upload_excel">上传Excel</button>
+        <input type="file" id="productFileInput" accept=".xlsx,.xls,.csv" style="display:none">
+      </div>
     </div>
     <div class="card">
       <div class="table-wrapper">
@@ -370,6 +377,14 @@
             <div class="form-group">
               <label class="form-label" data-i18n="gen_select_buyer">选择买方（收货方）</label>
               <select id="deliveryBuyerSelect" class="form-input"></select>
+            </div>
+            <div class="form-group" style="grid-column: 1 / -1">
+              <label class="form-label" data-i18n="gen_ship_from">发货地址（卖方）</label>
+              <textarea id="deliveryShipFrom" class="form-textarea" rows="2" data-i18n-ph="delivery_ship_from_ph" placeholder="请输入发货地址..."></textarea>
+            </div>
+            <div class="form-group" style="grid-column: 1 / -1">
+              <label class="form-label" data-i18n="gen_ship_to">收货地址（买方）</label>
+              <textarea id="deliveryShipTo" class="form-textarea" rows="2" data-i18n-ph="delivery_ship_to_ph" placeholder="请输入收货地址..."></textarea>
             </div>
             <div class="form-group">
               <label class="form-label" data-i18n="gen_delivery_no">送货单编号</label>
