@@ -1,5 +1,6 @@
 .workbuddy/
 node_modules/
+gh_auth.py
 *.log
 .DS_Store
 Thumbs.db
