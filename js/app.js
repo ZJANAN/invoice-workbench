@@ -1586,19 +1586,19 @@ function renderPdfPages(pdf, canvas, imgData, invoiceDoc, margin) {
   }
 
   // 2) Table row borders via CANVAS pixel scan (always reliable)
-  //    Scan horizontally across the middle ~60% of the canvas width,
+  //    Scan horizontally across the middle band of the canvas width,
   //    find Y positions with long horizontal dark-ish runs → row borders.
   const ctx = canvas.getContext('2d');
   if (ctx) {
     const w = canvas.width, h = canvas.height;
     const pxPerMm = h / imgHeight;
-    const sampleX0 = Math.floor(w * 0.15);
-    const sampleX1 = Math.floor(w * 0.75);
+    const sampleX0 = Math.floor(w * 0.08);
+    const sampleX1 = Math.floor(w * 0.88);
     const sampleW = sampleX1 - sampleX0;
 
     if (sampleW > 50 && h > 0) {
-      // Sample every 4th pixel row for performance
-      const step = Math.max(1, Math.floor(pxPerMm * 0.5)); // every ~0.5mm
+      // Sample every ~0.5mm of pixel rows for performance
+      const step = Math.max(1, Math.floor(pxPerMm * 0.5));
       const rowData = [];
       for (let py = 0; py < h; py += step) {
         const pix = ctx.getImageData(sampleX0, py, sampleW, 1).data;
@@ -1613,10 +1613,9 @@ function renderPdfPages(pdf, canvas, imgData, invoiceDoc, margin) {
             darkRun = 0;
           }
         }
-        // If >40% of sampled width is dark-ish, it's likely a row border
-        if (maxDarkRun > sampleW * 0.35) {
-          const yMm = py / pxPerMm;
-          rowData.push(yMm);
+        // If >30% of sampled width is dark-ish, it's likely a row border
+        if (maxDarkRun > sampleW * 0.30) {
+          rowData.push(py / pxPerMm);
         }
       }
       // Cluster nearby detections into row BORDERS (Y positions)
@@ -1641,7 +1640,10 @@ function renderPdfPages(pdf, canvas, imgData, invoiceDoc, margin) {
       for (let r = 0; r < borders.length - 1; r++) {
         const rowTop = borders[r];
         const rowBottom = borders[r + 1];
-        if (rowBottom - rowTop > 2) { // skip degenerate
+        const rowH = rowBottom - rowTop;
+        // Skip degenerate rows; if a row is taller than a full page we
+        // cannot avoid splitting it, so don't protect (fallback to normal cut).
+        if (rowH > 2 && rowH < pageH) {
           protected.push({ top: rowTop, bottom: rowBottom });
         }
       }
