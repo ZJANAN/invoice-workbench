@@ -1553,6 +1553,80 @@ function buildDeliveryHTML(seller, buyer, products, opts) {
   `;
 }
 
+// Slice a full-document canvas into A4 pages.
+// - Keeps the seal/signature block (`.invoice-seal-sign-area`) from being split
+//   across a page boundary (moves the whole block to the next page).
+// - Draws a clear page separator (border + page number) so multi-page PDFs are
+//   obviously divided.
+function renderPdfPages(pdf, canvas, imgData, invoiceDoc, margin) {
+  margin = margin || 5;
+  const pdfWidth = 210;
+  const imgWidth = pdfWidth - margin * 2;
+  const imgHeight = (canvas.height * imgWidth) / canvas.width;
+  const pdfHeight = 297;
+  const pageH = pdfHeight - margin * 2;
+  const scale = 2; // must match the html2canvas `scale` option used below
+
+  // Seal/signature vertical intervals (mm from top of the document)
+  const sealIntervals = [];
+  if (invoiceDoc) {
+    const docRect = invoiceDoc.getBoundingClientRect();
+    if (docRect.height > 0) {
+      const mmPerLayoutPx = imgHeight / (docRect.height * scale);
+      invoiceDoc.querySelectorAll('.invoice-seal-sign-area').forEach(el => {
+        const r = el.getBoundingClientRect();
+        const top = (r.top - docRect.top) * mmPerLayoutPx;
+        const bottom = (r.bottom - docRect.top) * mmPerLayoutPx;
+        if (bottom > 0 && top < imgHeight) sealIntervals.push({ top, bottom });
+      });
+    }
+  }
+
+  // Build page cut points (top mm of each page)
+  const cuts = [];
+  for (let y = 0; y < imgHeight - 0.5; y += pageH) cuts.push(y);
+  if (cuts.length === 0) cuts.push(0);
+
+  // Move any boundary that lands inside a seal block up to the seal's top,
+  // so the whole seal block flows onto the next page.
+  for (let i = 1; i < cuts.length; i++) {
+    const b = cuts[i];
+    for (const s of sealIntervals) {
+      if (s.top < b && b < s.bottom) {
+        cuts[i] = Math.max(cuts[i - 1] + 1, s.top);
+        break;
+      }
+    }
+  }
+  if (cuts[cuts.length - 1] < imgHeight - 0.5) cuts.push(imgHeight);
+  cuts.sort((a, b) => a - b);
+  const dc = [cuts[0]];
+  for (let i = 1; i < cuts.length; i++) {
+    if (cuts[i] - dc[dc.length - 1] > 0.3) dc.push(cuts[i]);
+  }
+  if (dc[dc.length - 1] < imgHeight - 0.5) dc.push(imgHeight);
+
+  const pageCount = dc.length - 1;
+  for (let p = 0; p < pageCount; p++) {
+    const topMm = dc[p];
+    if (p > 0) pdf.addPage();
+    // white sheet background
+    pdf.setFillColor(255, 255, 255);
+    pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
+    // place the relevant slice of the tall image
+    pdf.addImage(imgData, 'PNG', margin, margin - topMm, imgWidth, imgHeight);
+    // clear page separator for multi-page docs
+    if (pageCount > 1) {
+      pdf.setDrawColor(208, 213, 221);
+      pdf.setLineWidth(0.3);
+      pdf.rect(margin - 1.5, margin - 1.5, imgWidth + 3, pageH + 3);
+      pdf.setFontSize(8);
+      pdf.setTextColor(120, 130, 145);
+      pdf.text(`${p + 1} / ${pageCount}`, pdfWidth - margin, pdfHeight - 2.5, { align: 'right' });
+    }
+  }
+}
+
 async function generateDeliveryPDF() {
   if (typeof html2canvas === 'undefined') {
     showToast('Error: html2canvas library not loaded. Please refresh the page.', 6000);
@@ -1609,21 +1683,7 @@ async function generateDeliveryPDF() {
     const imgData = canvas.toDataURL('image/png');
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF('p', 'mm', 'a4');
-    const pdfWidth = 210, margin = 5;
-    const imgWidth = pdfWidth - margin * 2;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-    const pdfHeight = 297;
-    const pageContentHeight = pdfHeight - margin * 2;
-    let heightLeft = imgHeight;
-    let position = margin;
-    pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
-    heightLeft -= pageContentHeight;
-    while (heightLeft > 0) {
-      position -= pageContentHeight;
-      pdf.addPage();
-      pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
-      heightLeft -= pageContentHeight;
-    }
+    renderPdfPages(pdf, canvas, imgData, invoiceDoc, 5);
     const fileName = `Delivery_${docNo || 'doc'}.pdf`.replace(/[\\/:*?"<>|]/g, '_');
     pdf.save(fileName);
 
@@ -2013,21 +2073,7 @@ async function downloadHistoryDocument(docId) {
     const imgData = canvas.toDataURL('image/png');
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF('p', 'mm', 'a4');
-    const pdfWidth = 210, margin = 5;
-    const imgWidth = pdfWidth - margin * 2;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-    const pdfHeight = 297;
-    const pageContentHeight = pdfHeight - margin * 2;
-    let heightLeft = imgHeight;
-    let position = margin;
-    pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
-    heightLeft -= pageContentHeight;
-    while (heightLeft > 0) {
-      position -= pageContentHeight;
-      pdf.addPage();
-      pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
-      heightLeft -= pageContentHeight;
-    }
+    renderPdfPages(pdf, canvas, imgData, invoiceDoc, 5);
     const prefix = doc.type === 'invoice' ? 'Invoice' : doc.type === 'quotation' ? 'Quotation' : doc.type === 'delivery' ? 'Delivery' : 'Summary';
     pdf.save(`${prefix}_${doc.docNo || docId}.pdf`.replace(/[\\/:*?"<>|]/g, '_'));
   } catch (err) {
@@ -2108,22 +2154,7 @@ async function generatePDF(mode) {
     const imgData = canvas.toDataURL('image/png');
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF('p', 'mm', 'a4');
-    const pdfWidth = 210;
-    const imgWidth = pdfWidth - 10;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-    const pdfHeight = 297;
-    const margin = 5;
-    const pageContentHeight = pdfHeight - margin * 2;
-    let heightLeft = imgHeight;
-    let position = margin;
-    pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
-    heightLeft -= pageContentHeight;
-    while (heightLeft > 0) {
-      position -= pageContentHeight;
-      pdf.addPage();
-      pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
-      heightLeft -= pageContentHeight;
-    }
+    renderPdfPages(pdf, canvas, imgData, invoiceDoc, 5);
     const prefix = isInvoice ? 'Invoice' : 'Quotation';
     const fileName = `${prefix}_${invNo || seller.name || 'doc'}.pdf`.replace(/[\\/:*?"<>|]/g, '_');
     pdf.save(fileName);
