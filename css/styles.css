@@ -916,6 +916,12 @@ body {
   font-size: 12px;
 }
 
+.invoice-meta-right {
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-end;
+}
+
 .invoice-meta-item {
   display: flex;
   flex-wrap: wrap;
