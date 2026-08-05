@@ -1619,27 +1619,31 @@ function renderPdfPages(pdf, canvas, imgData, invoiceDoc, margin) {
           rowData.push(yMm);
         }
       }
-      // Cluster nearby detections into row intervals
-      // Each detected line is a border between two rows.
-      // Protect ±3mm around each border so cuts don't land on/near it.
+      // Cluster nearby detections into row BORDERS (Y positions)
       const GAP = 4; // mm gap to merge adjacent detections
+      const borders = []; // sorted unique border Y positions (mm)
       if (rowData.length > 0) {
         let start = rowData[0], prev = rowData[0];
         for (let k = 1; k < rowData.length; k++) {
           if (rowData[k] - prev <= GAP) {
             prev = rowData[k];
           } else {
-            // Emit protection zone around this cluster
-            const center = (start + prev) / 2;
-            const halfH = Math.max(4, (prev - start) / 2 + 3); // at least 4mm tall
-            protected.push({ top: center - halfH, bottom: center + halfH });
+            borders.push((start + prev) / 2);
             start = prev = rowData[k];
           }
         }
-        // Last cluster
-        const center = (start + prev) / 2;
-        const halfH = Math.max(4, (prev - start) / 2 + 3);
-        protected.push({ top: center - halfH, bottom: center + halfH });
+        borders.push((start + prev) / 2);
+      }
+
+      // Pair consecutive borders into ROW INTERVALS.
+      // Each row spans from one border to the next.
+      // Protecting the whole row ensures cuts never land inside a row.
+      for (let r = 0; r < borders.length - 1; r++) {
+        const rowTop = borders[r];
+        const rowBottom = borders[r + 1];
+        if (rowBottom - rowTop > 2) { // skip degenerate
+          protected.push({ top: rowTop, bottom: rowBottom });
+        }
       }
     }
   }
