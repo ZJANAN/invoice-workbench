@@ -129,6 +129,10 @@ const I18N = {
     gen_delivery_receiver_name_ph: '选填，收货人姓名',
     gen_delivery_receiver_phone: '收货人电话',
     gen_delivery_receiver_phone_ph: '选填，收货人电话',
+    gen_delivery_shipper_name: '发货人姓名',
+    gen_delivery_shipper_name_ph: '选填，发货人姓名',
+    gen_delivery_shipper_phone: '发货人电话',
+    gen_delivery_shipper_phone_ph: '选填，发货人电话',
     gen_delivery_preview: '送货单预览',
     gen_delivery_notes: '备注',
     delivery_notes_ph: '备注信息...',
@@ -298,6 +302,10 @@ const I18N = {
     gen_delivery_receiver_name_ph: 'Optional, receiver name',
     gen_delivery_receiver_phone: 'Receiver Phone',
     gen_delivery_receiver_phone_ph: 'Optional, receiver phone',
+    gen_delivery_shipper_name: 'Shipper Name',
+    gen_delivery_shipper_name_ph: 'Optional, shipper name',
+    gen_delivery_shipper_phone: 'Shipper Phone',
+    gen_delivery_shipper_phone_ph: 'Optional, shipper phone',
     gen_delivery_preview: 'Delivery Note Preview',
     gen_delivery_notes: 'Notes',
     delivery_notes_ph: 'Additional notes...',
@@ -1378,12 +1386,14 @@ function renderDeliveryPreview() {
   const orderRef = document.getElementById('deliveryOrderRef').value;
   const receiverName = document.getElementById('deliveryReceiverName').value;
   const receiverPhone = document.getElementById('deliveryReceiverPhone').value;
+  const shipperName = document.getElementById('deliveryShipperName').value;
+  const shipperPhone = document.getElementById('deliveryShipperPhone').value;
 
   if (!seller && !buyer && state.deliverySelectedProducts.size === 0) {
     preview.innerHTML = `<div class="invoice-empty-preview">${t('gen_delivery_desc')}</div>`;
     return;
   }
-  preview.innerHTML = buildDeliveryHTML(seller, buyer, resolved, { notes, shipFrom, shipTo, orderRef, receiverName, receiverPhone, seal: state.sealData['delivery'], signature: state.signatureData['delivery'] });
+  preview.innerHTML = buildDeliveryHTML(seller, buyer, resolved, { notes, shipFrom, shipTo, orderRef, receiverName, receiverPhone, shipperName, shipperPhone, seal: state.sealData['delivery'], signature: state.signatureData['delivery'] });
 }
 
 function buildDeliveryHTML(seller, buyer, products, opts) {
@@ -1405,6 +1415,8 @@ function buildDeliveryHTML(seller, buyer, products, opts) {
       <div class="invoice-party-label">Ship From / 发货方</div>
       <div class="invoice-party-name">${escHtml(seller.name || '')}</div>
       ${opts.shipFrom ? `<div class="invoice-party-detail">${escHtml(opts.shipFrom)}</div>` : (seller.address ? `<div class="invoice-party-detail">Address: ${escHtml(seller.address)}</div>` : '')}
+      ${opts.shipperName ? `<div class="invoice-party-detail">Shipper Name: ${escHtml(opts.shipperName)}</div>` : ''}
+      ${opts.shipperPhone ? `<div class="invoice-party-detail">Shipper Phone: ${escHtml(opts.shipperPhone)}</div>` : ''}
     </div>
   ` : `<div class="invoice-party"><div class="invoice-party-label">Ship From / 发货方</div><div class="invoice-party-detail">&mdash;</div></div>`;
 
@@ -1413,8 +1425,8 @@ function buildDeliveryHTML(seller, buyer, products, opts) {
       <div class="invoice-party-label">Ship To / 收货方</div>
       <div class="invoice-party-name">${escHtml(buyer.name || '')}</div>
       ${opts.shipTo ? `<div class="invoice-party-detail">${escHtml(opts.shipTo)}</div>` : (buyer.address ? `<div class="invoice-party-detail">Address: ${escHtml(buyer.address)}</div>` : '')}
-      ${opts.receiverName ? `<div class="invoice-party-detail">${escHtml(t('gen_delivery_receiver_name'))}: ${escHtml(opts.receiverName)}</div>` : ''}
-      ${opts.receiverPhone ? `<div class="invoice-party-detail">${escHtml(t('gen_delivery_receiver_phone'))}: ${escHtml(opts.receiverPhone)}</div>` : ''}
+      ${opts.receiverName ? `<div class="invoice-party-detail">Receiver Name: ${escHtml(opts.receiverName)}</div>` : ''}
+      ${opts.receiverPhone ? `<div class="invoice-party-detail">Receiver Phone: ${escHtml(opts.receiverPhone)}</div>` : ''}
     </div>
   ` : `<div class="invoice-party"><div class="invoice-party-label">Ship To / 收货方</div><div class="invoice-party-detail">&mdash;</div></div>`;
 
@@ -1470,11 +1482,11 @@ function buildDeliveryHTML(seller, buyer, products, opts) {
       <!-- Meta -->
       <div class="invoice-meta invoice-meta-right">
         <div class="invoice-meta-item">
-          <span class="invoice-meta-label">No.:</span>
+          <span class="invoice-meta-label">Delivery No.:</span>
           <span class="invoice-meta-value">${escHtml(docNo)}</span>
         </div>
         <div class="invoice-meta-item">
-          <span class="invoice-meta-label">Date:</span>
+          <span class="invoice-meta-label">Delivery Date:</span>
           <span class="invoice-meta-value">${dateFormatted}</span>
         </div>
         ${opts.orderRef ? `<div class="invoice-meta-item"><span class="invoice-meta-label">Po No./Contract No.:</span><span class="invoice-meta-value">${escHtml(opts.orderRef)}</span></div>` : ''}
@@ -1547,8 +1559,10 @@ async function generateDeliveryPDF() {
   const orderRef = document.getElementById('deliveryOrderRef').value;
   const receiverName = document.getElementById('deliveryReceiverName').value;
   const receiverPhone = document.getElementById('deliveryReceiverPhone').value;
+  const shipperName = document.getElementById('deliveryShipperName').value;
+  const shipperPhone = document.getElementById('deliveryShipperPhone').value;
 
-  const html = buildDeliveryHTML(seller, buyer, resolved, { notes, shipFrom, shipTo, orderRef, receiverName, receiverPhone, seal: state.sealData['delivery'], signature: state.signatureData['delivery'] });
+  const html = buildDeliveryHTML(seller, buyer, resolved, { notes, shipFrom, shipTo, orderRef, receiverName, receiverPhone, shipperName, shipperPhone, seal: state.sealData['delivery'], signature: state.signatureData['delivery'] });
 
   const container = document.createElement('div');
   container.style.cssText = 'position:fixed;left:0;top:0;width:210mm;z-index:-1;';
@@ -1607,6 +1621,8 @@ async function generateDeliveryPDF() {
       orderRef: orderRef,
       receiverName: receiverName,
       receiverPhone: receiverPhone,
+      shipperName: shipperName,
+      shipperPhone: shipperPhone,
       seal: state.sealData['delivery'] || '',
       signature: state.signatureData['delivery'] || '',
       createdAt: new Date().toISOString(),
@@ -1931,7 +1947,7 @@ async function downloadHistoryDocument(docId) {
 
   let html;
   if (doc.type === 'delivery') {
-    html = buildDeliveryHTML(seller, buyer, products, { notes: doc.notes || '', shipFrom: doc.shipFrom || '', shipTo: doc.shipTo || doc.deliveryAddress || '', orderRef: doc.orderRef || '', receiverName: doc.receiverName || '', receiverPhone: doc.receiverPhone || '', docNo: doc.docNo, docDate: doc.date, seal: doc.seal, signature: doc.signature });
+    html = buildDeliveryHTML(seller, buyer, products, { notes: doc.notes || '', shipFrom: doc.shipFrom || '', shipTo: doc.shipTo || doc.deliveryAddress || '', orderRef: doc.orderRef || '', receiverName: doc.receiverName || '', receiverPhone: doc.receiverPhone || '', shipperName: doc.shipperName || '', shipperPhone: doc.shipperPhone || '', docNo: doc.docNo, docDate: doc.date, seal: doc.seal, signature: doc.signature });
   } else {
     html = buildDocumentHTML(seller, buyer, products, {
       total: doc.total, dpp: doc.dpp, ppn: doc.ppn, grand: doc.grand,
@@ -2313,6 +2329,8 @@ function init() {
   document.getElementById('deliveryOrderRef').addEventListener('input', renderDeliveryPreview);
   document.getElementById('deliveryReceiverName').addEventListener('input', renderDeliveryPreview);
   document.getElementById('deliveryReceiverPhone').addEventListener('input', renderDeliveryPreview);
+  document.getElementById('deliveryShipperName').addEventListener('input', renderDeliveryPreview);
+  document.getElementById('deliveryShipperPhone').addEventListener('input', renderDeliveryPreview);
   document.getElementById('deliveryNotes').addEventListener('input', renderDeliveryPreview);
   document.getElementById('generateDeliveryPdfBtn').addEventListener('click', generateDeliveryPDF);
 
