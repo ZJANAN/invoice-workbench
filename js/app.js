@@ -109,6 +109,8 @@ const I18N = {
     gen_tax_rate: '税率 (%)',
     gen_select_products: '选择产品',
     gen_summary: '价格汇总',
+    gen_quotation_notes: '备注条款',
+    gen_quotation_notes_ph: '可在此随意增加备注条款...',
     gen_invoice_preview: '发票预览',
     gen_quotation_preview: '报价单预览',
     gen_generate_pdf: '生成 PDF',
@@ -282,6 +284,8 @@ const I18N = {
     gen_tax_rate: 'Tax Rate (%)',
     gen_select_products: 'Select Products',
     gen_summary: 'Price Summary',
+    gen_quotation_notes: 'Notes / Remarks',
+    gen_quotation_notes_ph: 'Add your own remark clauses here...',
     gen_invoice_preview: 'Invoice Preview',
     gen_quotation_preview: 'Quotation Preview',
     gen_generate_pdf: 'Generate PDF',
@@ -1332,12 +1336,13 @@ function renderQuotationPreview() {
   const quotNo = document.getElementById('quotationNo').value;
   const quotDate = document.getElementById('quotationDate').value;
   const payment = seller || null;
+  const notes = document.getElementById('quotationNotes') ? document.getElementById('quotationNotes').value : '';
 
   if (!seller && !buyer && state.quotationSelectedProducts.size === 0) {
     preview.innerHTML = `<div class="invoice-empty-preview">${t('gen_quotation_desc')}</div>`;
     return;
   }
-  preview.innerHTML = buildDocumentHTML(seller, buyer, resolved, { total, dpp, ppn, grand: total + ppn, invNo: quotNo, invDate: quotDate, payment, type: 'quotation', seal: state.sealData['quotation'], signature: state.signatureData['quotation'], taxRate });
+  preview.innerHTML = buildDocumentHTML(seller, buyer, resolved, { total, dpp, ppn, grand: total + ppn, invNo: quotNo, invDate: quotDate, notes, payment, type: 'quotation', seal: state.sealData['quotation'], signature: state.signatureData['quotation'], taxRate });
 }
 
 // ============ Generate Delivery Note Tab ============
@@ -1693,11 +1698,23 @@ function buildDocumentHTML(seller, buyer, products, calc) {
     </table>
   ` : '';
 
-  // Payment info from seller
-  let paymentHTML = '';
-  if (calc.payment && (calc.payment.bankName || calc.payment.accountNo)) {
+  // Side panel: invoice shows Payment Information; quotation shows Notes (fixed terms + custom remarks)
+  let sideHTML = '';
+  if (calc.type === 'quotation') {
+    sideHTML = `
+      <div class="invoice-payment">
+        <div class="invoice-payment-title">Notes</div>
+        <div class="invoice-payment-content">
+          <div>1、Quotation Validity: 7 days from the date of quotation.</div>
+          <div>2、The quoted prices are based on the specifications and quantities stated in this quotation.</div>
+          <div>3、Payment Terms: As agreed by both parties.</div>
+          ${calc.notes ? `<div style="margin-top:8px;white-space:pre-wrap;border-top:1px solid #e2e8f0;padding-top:8px;">${escHtml(calc.notes)}</div>` : ''}
+        </div>
+      </div>
+    `;
+  } else if (calc.payment && (calc.payment.bankName || calc.payment.accountNo)) {
     const p = calc.payment;
-    paymentHTML = `
+    sideHTML = `
       <div class="invoice-payment">
         <div class="invoice-payment-title">Payment Information</div>
         <div class="invoice-payment-content">
@@ -1747,9 +1764,9 @@ function buildDocumentHTML(seller, buyer, products, calc) {
       <!-- Products -->
       ${productsTable}
 
-      <!-- Totals + Payment Info (side by side) -->
+      <!-- Totals + Side panel (side by side) -->
       <div class="invoice-totals-payment-wrap">
-        ${paymentHTML || '<div></div>'}
+        ${sideHTML || '<div></div>'}
         <div class="invoice-totals">
           <div class="invoice-totals-box">
             <div class="invoice-total-row">
@@ -1951,7 +1968,7 @@ async function downloadHistoryDocument(docId) {
   } else {
     html = buildDocumentHTML(seller, buyer, products, {
       total: doc.total, dpp: doc.dpp, ppn: doc.ppn, grand: doc.grand,
-      invNo: doc.docNo, invDate: doc.date, orderRef: doc.orderRef || '', payment, type: doc.type,
+      invNo: doc.docNo, invDate: doc.date, orderRef: doc.orderRef || '', notes: doc.notes || '', payment, type: doc.type,
       seal: doc.seal, signature: doc.signature, taxRate: doc.taxRate || 11
     });
   }
@@ -2042,10 +2059,11 @@ async function generatePDF(mode) {
   const invNo = document.getElementById(isInvoice ? 'invoiceNo' : 'quotationNo').value;
   const invDate = document.getElementById(isInvoice ? 'invoiceDate' : 'quotationDate').value;
   const orderRef = isInvoice && document.getElementById('invoiceOrderRef') ? document.getElementById('invoiceOrderRef').value : '';
+  const notes = !isInvoice && document.getElementById('quotationNotes') ? document.getElementById('quotationNotes').value : '';
   const currencyEl = document.getElementById(isInvoice ? 'invoiceCurrencySelect' : 'quotationCurrencySelect');
   const currency = currencyEl ? currencyEl.value : 'IDR';
 
-  const html = buildDocumentHTML(seller, buyer, resolved, { total, dpp, ppn, grand: total + ppn, invNo, invDate, orderRef, payment, type: mode, seal: state.sealData[mode], signature: state.signatureData[mode], taxRate });
+  const html = buildDocumentHTML(seller, buyer, resolved, { total, dpp, ppn, grand: total + ppn, invNo, invDate, orderRef, notes, payment, type: mode, seal: state.sealData[mode], signature: state.signatureData[mode], taxRate });
 
   const container = document.createElement('div');
   container.style.cssText = 'position:fixed;left:0;top:0;width:210mm;z-index:-1;';
@@ -2097,6 +2115,7 @@ async function generatePDF(mode) {
       docNo: invNo,
       date: invDate,
       orderRef: orderRef || '',
+      notes: notes || '',
       sellerId: sellerId,
       buyerId: buyerId,
       productIds: selected.map(p => p.id),
@@ -2303,6 +2322,7 @@ function init() {
   document.getElementById('quotationTaxRate').addEventListener('input', () => { updateQuotationSummary(); renderQuotationPreview(); });
   document.getElementById('quotationNo').addEventListener('input', renderQuotationPreview);
   document.getElementById('quotationDate').addEventListener('change', renderQuotationPreview);
+  document.getElementById('quotationNotes').addEventListener('input', renderQuotationPreview);
   document.getElementById('generateQuotationPdfBtn').addEventListener('click', generateQuotationPDF);
 
   // Generate Delivery Note
