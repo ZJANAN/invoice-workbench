@@ -1555,10 +1555,14 @@ function buildDeliveryHTML(seller, buyer, products, opts) {
 
 // Slice a full-document canvas into A4 pages.
 // Features:
-// 1) Keeps table rows from being split — detects row borders by scanning the
-//    rendered canvas image (reliable regardless of hidden-DOM layout issues).
-// 2) Keeps seal blocks (.invoice-seal-sign-area) whole via DOM measurement.
-// 3) Subtle page separator (barely-visible grey border) for multi-page PDFs.
+// 1) Each page is rendered from an EXACT crop of the canvas (not an offset of
+//    the whole image), so a row can never appear on two pages, nor can content
+//    overlap between pages.
+// 2) Table rows are never split: row borders are detected by scanning the
+//    rendered canvas; the page cut is then moved so the whole row stays on the
+//    next page (or, if it fits, kept on the current page).
+// 3) Seal blocks (.invoice-seal-sign-area) are kept whole via DOM measurement.
+// 4) Subtle page separator (barely-visible grey border) for multi-page PDFs.
 function renderPdfPages(pdf, canvas, imgData, invoiceDoc, margin) {
   margin = margin || 5;
   const pdfWidth = 210;
@@ -1566,28 +1570,28 @@ function renderPdfPages(pdf, canvas, imgData, invoiceDoc, margin) {
   const imgHeight = (canvas.height * imgWidth) / canvas.width;
   const pdfHeight = 297;
   const pageH = pdfHeight - margin * 2;
+  const MIN_PAGE = 40; // mm: if pushing a row down leaves less than this, keep it on current page
 
-  // --- Collect protected vertical intervals (mm) that must NOT be crossed ---
-  const protected = [];
+  // --- Collect protected vertical intervals (mm) that must NOT be split ---
+  const protectedIntervals = [];
 
-  // 1) Seal/signature area via DOM (single element, usually works)
+  // 1) Seal/signature area via DOM (single positioned block)
   if (invoiceDoc) {
     const docRect = invoiceDoc.getBoundingClientRect();
     if (docRect.height > 0) {
-      const scale = 2; // must match html2canvas scale
-      const mmPerPx = imgHeight / (docRect.height * scale);
+      // canvas height = layoutHeight * scale, but the mm ratio uses layout px only
+      // (scale cancels): 1 mm <-> (docRect.height / imgHeight) CSS px
+      const mmPerPx = imgHeight / docRect.height;
       invoiceDoc.querySelectorAll('.invoice-seal-sign-area').forEach(el => {
         const r = el.getBoundingClientRect();
         const top = (r.top - docRect.top) * mmPerPx;
         const bottom = (r.bottom - docRect.top) * mmPerPx;
-        if (bottom > 0 && top < imgHeight) protected.push({ top, bottom });
+        if (bottom > 0 && top < imgHeight) protectedIntervals.push({ top, bottom });
       });
     }
   }
 
   // 2) Table row borders via CANVAS pixel scan (always reliable)
-  //    Scan horizontally across the middle band of the canvas width,
-  //    find Y positions with long horizontal dark-ish runs → row borders.
   const ctx = canvas.getContext('2d');
   if (ctx) {
     const w = canvas.width, h = canvas.height;
@@ -1597,30 +1601,24 @@ function renderPdfPages(pdf, canvas, imgData, invoiceDoc, margin) {
     const sampleW = sampleX1 - sampleX0;
 
     if (sampleW > 50 && h > 0) {
-      // Sample every ~0.5mm of pixel rows for performance
-      const step = Math.max(1, Math.floor(pxPerMm * 0.5));
+      const step = Math.max(1, Math.floor(pxPerMm * 0.5)); // every ~0.5mm
       const rowData = [];
       for (let py = 0; py < h; py += step) {
         const pix = ctx.getImageData(sampleX0, py, sampleW, 1).data;
         let darkRun = 0, maxDarkRun = 0;
         for (let i = 0; i < pix.length; i += 4) {
-          const r = pix[i], g = pix[i + 1], b = pix[i + 2];
-          // Count pixels darker than #e8e8e8 (typical light border)
-          if (r < 232 || g < 232 || b < 232) {
+          if (pix[i] < 232 || pix[i + 1] < 232 || pix[i + 2] < 232) {
             darkRun++;
             if (darkRun > maxDarkRun) maxDarkRun = darkRun;
           } else {
             darkRun = 0;
           }
         }
-        // If >30% of sampled width is dark-ish, it's likely a row border
-        if (maxDarkRun > sampleW * 0.30) {
-          rowData.push(py / pxPerMm);
-        }
+        if (maxDarkRun > sampleW * 0.30) rowData.push(py / pxPerMm);
       }
-      // Cluster nearby detections into row BORDERS (Y positions)
-      const GAP = 4; // mm gap to merge adjacent detections
-      const borders = []; // sorted unique border Y positions (mm)
+      // Cluster detections into border Y positions (mm)
+      const GAP = 4;
+      const borders = [];
       if (rowData.length > 0) {
         let start = rowData[0], prev = rowData[0];
         for (let k = 1; k < rowData.length; k++) {
@@ -1633,57 +1631,72 @@ function renderPdfPages(pdf, canvas, imgData, invoiceDoc, margin) {
         }
         borders.push((start + prev) / 2);
       }
-
-      // Pair consecutive borders into ROW INTERVALS.
-      // Each row spans from one border to the next.
-      // Protecting the whole row ensures cuts never land inside a row.
+      // Pair consecutive borders into whole-row intervals
       for (let r = 0; r < borders.length - 1; r++) {
-        const rowTop = borders[r];
-        const rowBottom = borders[r + 1];
-        const rowH = rowBottom - rowTop;
-        // Skip degenerate rows; if a row is taller than a full page we
-        // cannot avoid splitting it, so don't protect (fallback to normal cut).
-        if (rowH > 2 && rowH < pageH) {
-          protected.push({ top: rowTop, bottom: rowBottom });
-        }
+        const top = borders[r], bottom = borders[r + 1];
+        const rowH = bottom - top;
+        if (rowH > 2 && rowH < pageH) protectedIntervals.push({ top, bottom });
       }
     }
   }
 
-  // --- Build cut points ---
-  const cuts = [];
-  for (let y = 0; y < imgHeight - 0.5; y += pageH) cuts.push(y);
-  if (cuts.length === 0) cuts.push(0);
-
-  // Shift any boundary inside a protected block up to the block's top edge
-  for (let i = 1; i < cuts.length; i++) {
-    const b = cuts[i];
-    for (const s of protected) {
-      if (s.top < b && b < s.bottom) {
-        cuts[i] = Math.max(cuts[i - 1] + 1, s.top);
-        break;
+  // --- Greedy pagination: build cut points where no cut lands inside a row ---
+  // Each cut is a boundary between two pages. We always ensure
+  // cut[p+1] - cut[p] <= pageH so every page fits within the sheet.
+  const cuts = [0];
+  let cursor = 0;
+  let guard = 0;
+  while (cursor < imgHeight - 0.5 && guard++ < 2000) {
+    let next = cursor + pageH;
+    if (next >= imgHeight) { cuts.push(imgHeight); break; }
+    // Find a protected interval that the natural cut falls inside
+    let containing = null;
+    for (const s of protectedIntervals) {
+      if (s.top < next && next < s.bottom) { containing = s; break; }
+    }
+    if (containing) {
+      const pushDown = containing.top - cursor;          // page height if row moves to next page
+      const keepHere = containing.bottom - cursor;        // page height if row stays here
+      if (pushDown >= MIN_PAGE || keepHere > pageH) {
+        // Push the whole row to the next page (preferred, leaves a clean page)
+        next = containing.top;
+      } else {
+        // Row fits on current page — end current page just after it
+        next = containing.bottom;
       }
     }
+    if (next <= cursor) next = cursor + pageH; // safety: never go backwards
+    cuts.push(next);
+    cursor = next;
   }
   if (cuts[cuts.length - 1] < imgHeight - 0.5) cuts.push(imgHeight);
-  cuts.sort((a, b) => a - b);
 
-  // Deduplicate near-duplicates
-  const dc = [cuts[0]];
-  for (let i = 1; i < cuts.length; i++) {
-    if (cuts[i] - dc[dc.length - 1] > 0.3) dc.push(cuts[i]);
-  }
-  if (dc[dc.length - 1] < imgHeight - 0.5) dc.push(imgHeight);
+  const pageCount = cuts.length - 1;
+  const pxPerMmImg = canvas.height / imgHeight;
 
-  // --- Render pages ---
-  const pageCount = dc.length - 1;
+  // --- Render each page from an EXACT crop of the canvas ---
   for (let p = 0; p < pageCount; p++) {
-    const topMm = dc[p];
-    if (p > 0) pdf.addPage();
+    const topMm = cuts[p];
+    const bottomMm = (p < pageCount - 1) ? cuts[p + 1] : imgHeight;
+    const sliceHmm = Math.max(1, bottomMm - topMm);
 
+    // Crop the relevant band out of the full canvas
+    const sy = Math.max(0, Math.floor(topMm * pxPerMmImg));
+    const sh = Math.min(canvas.height - sy, Math.ceil(sliceHmm * pxPerMmImg));
+    const tmp = document.createElement('canvas');
+    tmp.width = canvas.width;
+    tmp.height = sh;
+    const tctx = tmp.getContext('2d');
+    tctx.fillStyle = '#ffffff';
+    tctx.fillRect(0, 0, tmp.width, tmp.height);
+    tctx.drawImage(canvas, 0, sy, canvas.width, sh, 0, 0, canvas.width, sh);
+    const sliceImg = tmp.toDataURL('image/png');
+    const sliceImgH = (sh * imgWidth) / canvas.width; // mm
+
+    if (p > 0) pdf.addPage();
     pdf.setFillColor(255, 255, 255);
     pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
-    pdf.addImage(imgData, 'PNG', margin, margin - topMm, imgWidth, imgHeight);
+    pdf.addImage(sliceImg, 'PNG', margin, margin, imgWidth, sliceImgH);
 
     // Subtle page separator
     if (pageCount > 1) {
