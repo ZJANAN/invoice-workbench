@@ -96,6 +96,8 @@ const I18N = {
     gen_quotation_desc: '选择卖方、买方和产品，自动计算价格并生成PDF格式报价单',
     gen_doc_info: '单据信息',
     gen_invoice_no: '发票编号',
+    gen_invoice_order_ref: '订单号/合同号',
+    gen_invoice_order_ref_ph: '选填，如 PO2026-001',
     gen_quotation_no: '报价单编号',
     gen_date: '日期',
     gen_select_seller: '选择卖方',
@@ -256,6 +258,8 @@ const I18N = {
     gen_quotation_desc: 'Select seller, buyer and products, auto-calculate and generate PDF quotation.',
     gen_doc_info: 'Document Info',
     gen_invoice_no: 'Invoice No.',
+    gen_invoice_order_ref: 'Order / Contract No.',
+    gen_invoice_order_ref_ph: 'Optional, e.g. PO2026-001',
     gen_quotation_no: 'Quotation No.',
     gen_date: 'Date',
     gen_select_seller: 'Select Seller',
@@ -1249,13 +1253,14 @@ function renderInvoicePreview() {
   const ppn = total * taxRate / 100;
   const invNo = document.getElementById('invoiceNo').value;
   const invDate = document.getElementById('invoiceDate').value;
+  const orderRef = document.getElementById('invoiceOrderRef') ? document.getElementById('invoiceOrderRef').value : '';
   const payment = seller || null;
 
   if (!seller && !buyer && state.invoiceSelectedProducts.size === 0) {
     preview.innerHTML = `<div class="invoice-empty-preview">${t('gen_invoice_desc')}</div>`;
     return;
   }
-  preview.innerHTML = buildDocumentHTML(seller, buyer, resolved, { total, dpp, ppn, grand: total + ppn, invNo, invDate, payment, type: 'invoice', seal: state.sealData['invoice'], signature: state.signatureData['invoice'], taxRate });
+  preview.innerHTML = buildDocumentHTML(seller, buyer, resolved, { total, dpp, ppn, grand: total + ppn, invNo, invDate, orderRef, payment, type: 'invoice', seal: state.sealData['invoice'], signature: state.signatureData['invoice'], taxRate });
 }
 
 // ============ Generate Quotation Tab ============
@@ -1684,6 +1689,7 @@ function buildDocumentHTML(seller, buyer, products, calc) {
         <div class="invoice-meta-item">
           <span class="invoice-meta-label">No.:</span>
           <span class="invoice-meta-value">${escHtml(calc.invNo || '')}</span>
+          ${calc.orderRef ? `<div class="invoice-meta-sub">${escHtml(t('gen_invoice_order_ref'))}: ${escHtml(calc.orderRef)}</div>` : ''}
         </div>
         <div class="invoice-meta-item">
           <span class="invoice-meta-label">Date:</span>
@@ -1903,7 +1909,7 @@ async function downloadHistoryDocument(docId) {
   } else {
     html = buildDocumentHTML(seller, buyer, products, {
       total: doc.total, dpp: doc.dpp, ppn: doc.ppn, grand: doc.grand,
-      invNo: doc.docNo, invDate: doc.date, payment, type: doc.type,
+      invNo: doc.docNo, invDate: doc.date, orderRef: doc.orderRef || '', payment, type: doc.type,
       seal: doc.seal, signature: doc.signature, taxRate: doc.taxRate || 11
     });
   }
@@ -1993,10 +1999,11 @@ async function generatePDF(mode) {
   const ppn = total * taxRate / 100;
   const invNo = document.getElementById(isInvoice ? 'invoiceNo' : 'quotationNo').value;
   const invDate = document.getElementById(isInvoice ? 'invoiceDate' : 'quotationDate').value;
+  const orderRef = isInvoice && document.getElementById('invoiceOrderRef') ? document.getElementById('invoiceOrderRef').value : '';
   const currencyEl = document.getElementById(isInvoice ? 'invoiceCurrencySelect' : 'quotationCurrencySelect');
   const currency = currencyEl ? currencyEl.value : 'IDR';
 
-  const html = buildDocumentHTML(seller, buyer, resolved, { total, dpp, ppn, grand: total + ppn, invNo, invDate, payment, type: mode, seal: state.sealData[mode], signature: state.signatureData[mode], taxRate });
+  const html = buildDocumentHTML(seller, buyer, resolved, { total, dpp, ppn, grand: total + ppn, invNo, invDate, orderRef, payment, type: mode, seal: state.sealData[mode], signature: state.signatureData[mode], taxRate });
 
   const container = document.createElement('div');
   container.style.cssText = 'position:fixed;left:0;top:0;width:210mm;z-index:-1;';
@@ -2047,6 +2054,7 @@ async function generatePDF(mode) {
       type: mode,
       docNo: invNo,
       date: invDate,
+      orderRef: orderRef || '',
       sellerId: sellerId,
       buyerId: buyerId,
       productIds: selected.map(p => p.id),
@@ -2242,6 +2250,7 @@ function init() {
   document.getElementById('invoiceCurrencySelect').addEventListener('change', () => { updateInvoiceSummary(); renderInvoicePreview(); });
   document.getElementById('invoiceTaxRate').addEventListener('input', () => { updateInvoiceSummary(); renderInvoicePreview(); });
   document.getElementById('invoiceNo').addEventListener('input', renderInvoicePreview);
+  document.getElementById('invoiceOrderRef').addEventListener('input', renderInvoicePreview);
   document.getElementById('invoiceDate').addEventListener('change', renderInvoicePreview);
   document.getElementById('generateInvoicePdfBtn').addEventListener('click', generateInvoicePDF);
 
