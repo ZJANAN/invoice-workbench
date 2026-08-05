@@ -98,6 +98,7 @@ const I18N = {
     gen_invoice_no: '发票编号',
     gen_invoice_order_ref: '订单号/合同号',
     gen_invoice_order_ref_ph: '选填，如 PO2026-001',
+    gen_po_contract_label: 'Po No./Contract No.',
     gen_quotation_no: '报价单编号',
     gen_date: '日期',
     gen_select_seller: '选择卖方',
@@ -260,6 +261,7 @@ const I18N = {
     gen_invoice_no: 'Invoice No.',
     gen_invoice_order_ref: 'Order / Contract No.',
     gen_invoice_order_ref_ph: 'Optional, e.g. PO2026-001',
+    gen_po_contract_label: 'Po No./Contract No.',
     gen_quotation_no: 'Quotation No.',
     gen_date: 'Date',
     gen_select_seller: 'Select Seller',
@@ -1689,7 +1691,7 @@ function buildDocumentHTML(seller, buyer, products, calc) {
         <div class="invoice-meta-item">
           <span class="invoice-meta-label">No.:</span>
           <span class="invoice-meta-value">${escHtml(calc.invNo || '')}</span>
-          ${calc.orderRef ? `<div class="invoice-meta-sub">${escHtml(t('gen_invoice_order_ref'))}: ${escHtml(calc.orderRef)}</div>` : ''}
+          ${calc.orderRef ? `<div class="invoice-meta-sub">${escHtml(t('gen_po_contract_label'))}: ${escHtml(calc.orderRef)}</div>` : ''}
         </div>
         <div class="invoice-meta-item">
           <span class="invoice-meta-label">Date:</span>
