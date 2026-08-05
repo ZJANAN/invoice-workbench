@@ -1451,8 +1451,8 @@ function buildDeliveryHTML(seller, buyer, products, opts) {
   const productRows = products.map((p, i) => `
     <tr>
       <td class="center">${i + 1}</td>
-      <td>${escHtml(p.name)}</td>
-      <td>${escHtml(p.model || '-')}</td>
+      <td class="col-desc">${escHtml(p.name)}</td>
+      <td class="col-model">${escHtml(p.model || '-')}</td>
       <td class="center">${p.quantity}</td>
       <td class="center">${escHtml(p.unit || '-')}</td>
     </tr>
@@ -1463,8 +1463,8 @@ function buildDeliveryHTML(seller, buyer, products, opts) {
       <thead>
         <tr>
           <th class="center" style="width:30px">#</th>
-          <th>Description</th>
-          <th style="width:100px">Model</th>
+          <th style="width:280px">Description</th>
+          <th style="width:90px" class="col-model">Model</th>
           <th class="center" style="width:60px">Qty</th>
           <th class="center" style="width:60px">Unit</th>
         </tr>
@@ -1692,8 +1692,8 @@ function buildDocumentHTML(seller, buyer, products, calc) {
   const productRows = products.map((p, i) => `
     <tr>
       <td class="center">${i + 1}</td>
-      <td>${escHtml(p.name)}</td>
-      <td>${escHtml(p.model || '-')}</td>
+      <td class="col-desc">${escHtml(p.name)}</td>
+      <td class="col-model">${escHtml(p.model || '-')}</td>
       <td class="center">${p.quantity}</td>
       <td class="center">${escHtml(p.unit || '-')}</td>
       <td class="right">${fmtNum(p.unitPrice)}</td>
@@ -1706,8 +1706,8 @@ function buildDocumentHTML(seller, buyer, products, calc) {
       <thead>
         <tr>
           <th class="center" style="width:30px">#</th>
-          <th>Description</th>
-          <th style="width:80px">Model</th>
+          <th style="width:260px">Description</th>
+          <th style="width:70px" class="col-model">Model</th>
           <th class="center" style="width:50px">Qty</th>
           <th class="center" style="width:50px">Unit</th>
           <th class="right" style="width:90px">Unit Price</th>

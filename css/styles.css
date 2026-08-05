@@ -1050,6 +1050,10 @@ body {
 .invoice-table td.right { text-align: right; }
 .invoice-table td.center { text-align: center; }
 
+/* Keep Model column hugging the Description column */
+.invoice-table .col-desc { padding-right: 4px; word-break: break-word; }
+.invoice-table .col-model { padding-left: 4px; }
+
 .invoice-table tbody tr:nth-child(even) {
   background: #f8fafc;
 }
