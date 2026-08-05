@@ -422,6 +422,10 @@
               <label class="form-label" data-i18n="gen_delivery_shipper_phone">发货人电话</label>
               <input type="text" id="deliveryShipperPhone" class="form-input" data-i18n-ph="gen_delivery_shipper_phone_ph" placeholder="选填，发货人电话">
             </div>
+            <div class="form-group" style="grid-column: 1 / -1">
+              <label class="form-label" data-i18n="gen_delivery_notes">备注条款</label>
+              <textarea id="deliveryNotes" class="form-textarea" rows="3" data-i18n-ph="delivery_notes_ph" placeholder="可自由输入备注条款..."></textarea>
+            </div>
           </div>
         </div>
         <div class="card">
@@ -455,8 +459,7 @@
           </div>
         </div>
         <div class="card">
-          <h3 class="card-title" data-i18n="gen_delivery_notes">备注</h3>
-          <textarea id="deliveryNotes" class="form-textarea" rows="3" data-i18n-ph="delivery_notes_ph" placeholder="备注信息..."></textarea>
+          <h3 class="card-title" data-i18n="gen_generate">生成</h3>
           <button id="generateDeliveryPdfBtn" class="btn btn-primary btn-block" data-i18n="gen_generate_pdf">生成 PDF</button>
         </div>
       </div>

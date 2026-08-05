@@ -126,6 +126,7 @@ const I18N = {
     gen_delivery_desc: '选择发货方、收货方和产品，生成PDF格式送货单',
     gen_delivery_no: '送货单编号',
     gen_delivery_order_ref: '订单号/合同号',
+    gen_generate: '生成',
     gen_delivery_order_ref_ph: '选填，如 PO2026-001',
     gen_delivery_receiver_name: '收货人姓名',
     gen_delivery_receiver_name_ph: '选填，收货人姓名',
@@ -300,6 +301,7 @@ const I18N = {
     gen_delivery_title: 'Generate Delivery Note',
     gen_delivery_desc: 'Select shipper, receiver and products to generate PDF delivery note.',
     gen_delivery_no: 'Delivery Note No.',
+    gen_generate: 'Generate',
     gen_delivery_order_ref: 'Order / Contract No.',
     gen_delivery_order_ref_ph: 'Optional, e.g. PO2026-001',
     gen_delivery_receiver_name: 'Receiver Name',
@@ -1407,6 +1409,8 @@ function renderDeliveryPreview() {
 }
 
 function buildDeliveryHTML(seller, buyer, products, opts) {
+  const DELIVERY_FIXED_NOTE = 'Please check the quantity and quality upon receipt. Goods cannot be returned once the Delivery Note has been signed and acknowledged. Thank you for your cooperation.';
+
   const logoHTML = (seller && seller.logo)
     ? `<img src="${seller.logo}" class="invoice-logo" alt="logo">`
     : '';
@@ -1465,8 +1469,14 @@ function buildDeliveryHTML(seller, buyer, products, opts) {
     </table>
   ` : '';
 
+  const fixedNoteHTML = `
+    <div class="invoice-terms delivery-fixed-note" style="margin-top:24px">
+      <div class="invoice-terms-content" style="text-align:justify;text-justify:inter-word">${escHtml(DELIVERY_FIXED_NOTE)}</div>
+    </div>
+  `;
+
   const notesHTML = opts.notes ? `
-    <div class="invoice-terms" style="margin-top:24px">
+    <div class="invoice-terms" style="margin-top:16px">
       <div class="invoice-terms-title">Notes</div>
       <div class="invoice-terms-content">${escHtml(opts.notes)}</div>
     </div>
@@ -1512,6 +1522,7 @@ function buildDeliveryHTML(seller, buyer, products, opts) {
       ${productsTable}
 
       <!-- Notes -->
+      ${fixedNoteHTML}
       ${notesHTML}
 
       <!-- Signature: dual — shipper (seal+signature overlaid) and receiver (signature line only) -->
