@@ -1174,7 +1174,12 @@ function renderProductSelectList(containerId, emptyId, selectedSet, mode) {
       const bundleTotal = items.reduce((s, it) => s + (Number(it.quantity) || 0) * (Number(it.unitPrice) || 0), 0);
       const sets = cfg.quantities[p.id] !== undefined ? cfg.quantities[p.id] : 1;
       const qty = Math.max(1, parseInt(sets) || 1);
-      nameHtml = `📦 ${escHtml(p.name)} <span class="bundle-badge">${t('product_bundle')}</span>`;
+      // always show a name: prefer the bundle's own name, fall back to the first
+      // contained item's name, then to the default bundle label.
+      const bundleName = (p.name && String(p.name).trim())
+        ? String(p.name).trim()
+        : (items[0] && items[0].name ? items[0].name : t('product_bundle_default'));
+      nameHtml = `📦 ${escHtml(bundleName)} <span class="bundle-badge">${t('product_bundle')}</span>`;
       metaHtml = `${count} ${t('product_bundle_items')} &middot; ${fmtNum(bundleTotal)}`;
       qtyHtml = `
         <span class="qty-label">${t('product_select_sets')}:</span>
