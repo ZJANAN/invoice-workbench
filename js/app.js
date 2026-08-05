@@ -1626,34 +1626,16 @@ function renderPdfPages(pdf, canvas, imgData, invoiceDoc, margin) {
     // Place image slice
     pdf.addImage(imgData, 'PNG', margin, margin - topMm, imgWidth, imgHeight);
 
-    // Prominent page separator for multi-page PDFs
+    // Subtle page separator for multi-page PDFs (barely visible border)
     if (pageCount > 1) {
-      const sepY = margin + pageH; // just below content area
+      pdf.setDrawColor(230, 233, 240);
+      pdf.setLineWidth(0.2);
+      pdf.rect(margin - 1, margin - 1, imgWidth + 2, pageH + 2);
 
-      // Thick dashed separator line spanning full width
-      pdf.setDrawColor(100, 116, 139);
-      pdf.setLineWidth(0.6);
-      pdf.setLineDashPattern([3, 2], 0);
-      pdf.line(margin, sepY, pdfWidth - margin, sepY);
-      pdf.setLineDashPattern([], 0); // reset to solid
-
-      // Page number banner — centered, white bg with border
-      const label = `- ${p + 1} / ${pageCount} -`;
-      pdf.setFontSize(10);
-      pdf.setTextColor(71, 85, 105);
-      const textW = pdf.getTextWidth(label);
-      const labelX = pdfWidth / 2;
-      const labelY = sepY + 4;
-
-      // White pill background behind text
-      pdf.setFillColor(255, 255, 255);
-      pdf.roundedRect(labelX - textW / 2 - 4, labelY - 3.5, textW + 8, 7, 1.5, 1.5, 'F');
-      // Border around pill
-      pdf.setDrawColor(203, 213, 225);
-      pdf.setLineWidth(0.25);
-      pdf.roundedRect(labelX - textW / 2 - 4, labelY - 3.5, textW + 8, 7, 1.5, 1.5, 'S');
-
-      pdf.text(label, labelX, labelY, { align: 'center' });
+      // Small page number in corner
+      pdf.setFontSize(7);
+      pdf.setTextColor(200, 208, 218);
+      pdf.text(`${p + 1} / ${pageCount}`, pdfWidth - margin, pdfHeight - 2, { align: 'right' });
     }
   }
 }
