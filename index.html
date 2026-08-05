@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>报价单与发票工作台 | Quotation & Invoice Workbench</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="lib/jspdf.umd.min.js"></script>
+  <script src="lib/html2canvas.min.js"></script>
+</head>
+<body>
+
+<!-- ============ Header ============ -->
+<header class="app-header">
+  <div class="header-inner">
+    <div class="header-left">
+      <div class="logo-box">PI</div>
+      <div>
+        <h1 class="app-title" data-i18n="appTitle">报价单与发票工作台</h1>
+        <span class="app-subtitle" data-i18n="appSubtitle">Quotation & Invoice Workbench</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <button id="exportDataBtn" class="btn btn-sm btn-outline" data-i18n="exportData">导出数据</button>
+      <button id="importDataBtn" class="btn btn-sm btn-outline" data-i18n="importData">导入数据</button>
+      <input type="file" id="importFileInput" accept=".json" style="display:none">
+      <button id="langToggle" class="btn btn-sm btn-primary">English</button>
+    </div>
+  </div>
+</header>
+
+<!-- ============ Tab Nav ============ -->
+<nav class="tab-nav">
+  <div class="tab-nav-inner">
+    <button class="tab-btn active" data-tab="seller">
+      <span class="tab-icon">🏢</span>
+      <span data-i18n="tab_seller">卖方信息</span>
+    </button>
+    <button class="tab-btn" data-tab="buyer">
+      <span class="tab-icon">👥</span>
+      <span data-i18n="tab_buyer">买方信息</span>
+    </button>
+    <button class="tab-btn" data-tab="products">
+      <span class="tab-icon">📦</span>
+      <span data-i18n="tab_products">产品明细</span>
+    </button>
+    <button class="tab-btn" data-tab="generate-invoice">
+      <span class="tab-icon">📄</span>
+      <span data-i18n="tab_generate_invoice">生成发票</span>
+    </button>
+    <button class="tab-btn" data-tab="generate-quotation">
+      <span class="tab-icon">📋</span>
+      <span data-i18n="tab_generate_quotation">生成报价单</span>
+    </button>
+    <button class="tab-btn" data-tab="generate-delivery">
+      <span class="tab-icon">🚚</span>
+      <span data-i18n="tab_generate_delivery">生成送货单</span>
+    </button>
+    <button class="tab-btn" data-tab="history">
+      <span class="tab-icon">📚</span>
+      <span data-i18n="tab_history">历史文档</span>
+    </button>
+  </div>
+</nav>
+
+<!-- ============ Main Content ============ -->
+<main class="main-content">
+
+  <!-- ====== Seller Tab ====== -->
+  <section id="tab-seller" class="tab-panel active">
+    <div class="section-header">
+      <div>
+        <h2 data-i18n="seller_title">卖方信息</h2>
+        <p class="section-desc" data-i18n="seller_desc">管理多个卖方（供应商）信息，保存后可用于生成报价单和发票</p>
+      </div>
+      <button id="sellerAddBtn" class="btn btn-primary" data-i18n="seller_add">+ 添加卖方</button>
+    </div>
+    <div class="card">
+      <div id="sellerList" class="data-list"></div>
+      <div id="sellerEmpty" class="empty-state" style="display:none">
+        <span class="empty-icon">📭</span>
+        <p data-i18n="seller_empty">暂无卖方信息，请点击「添加卖方」</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== Buyer Tab ====== -->
+  <section id="tab-buyer" class="tab-panel">
+    <div class="section-header">
+      <div>
+        <h2 data-i18n="buyer_title">买方信息</h2>
+        <p class="section-desc" data-i18n="buyer_desc">管理买方（客户）信息列表</p>
+      </div>
+      <button id="buyerAddBtn" class="btn btn-primary" data-i18n="buyer_add">+ 添加买方</button>
+    </div>
+    <div class="card">
+      <div id="buyerList" class="data-list"></div>
+      <div id="buyerEmpty" class="empty-state" style="display:none">
+        <span class="empty-icon">📭</span>
+        <p data-i18n="buyer_empty">暂无买方信息，请点击「添加买方」</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== Products Tab ====== -->
+  <section id="tab-products" class="tab-panel">
+    <div class="section-header">
+      <div>
+        <h2 data-i18n="product_title">产品明细</h2>
+        <p class="section-desc" data-i18n="product_desc">管理产品信息列表，用于生��报价单和发票</p>
+      </div>
+      <button id="productAddBtn" class="btn btn-primary" data-i18n="product_add">+ 添加产品</button>
+    </div>
+    <div class="card">
+      <div class="table-wrapper">
+        <table class="data-table" id="productTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th data-i18n="product_name">产品名称</th>
+              <th data-i18n="product_model">型号</th>
+              <th data-i18n="product_qty">数量</th>
+              <th data-i18n="product_unit">单位</th>
+              <th data-i18n="product_unit_price">未含税单价</th>
+              <th data-i18n="product_total_price">未含税总价</th>
+              <th data-i18n="common_actions">操作</th>
+            </tr>
+          </thead>
+          <tbody id="productTableBody"></tbody>
+        </table>
+      </div>
+      <div id="productEmpty" class="empty-state" style="display:none">
+        <span class="empty-icon">📭</span>
+        <p data-i18n="product_empty">暂无产品信息，请点击「添加产品」</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== Generate Invoice Tab ====== -->
+  <section id="tab-generate-invoice" class="tab-panel">
+    <div class="section-header">
+      <h2 data-i18n="gen_invoice_title">生成形式发票</h2>
+      <p class="section-desc" data-i18n="gen_invoice_desc">选择卖方、买方和产品，自动计算价格并生成PDF格式发票</p>
+    </div>
+    <div class="generate-layout">
+      <div class="generate-config">
+        <div class="card">
+          <h3 class="card-title" data-i18n="gen_doc_info">单据信息</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label" data-i18n="gen_select_seller">选择卖方</label>
+              <select id="invoiceSellerSelect" class="form-input"></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="gen_select_buyer">选择买方</label>
+              <select id="invoiceBuyerSelect" class="form-input"></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="gen_invoice_no">发票编号</label>
+              <input type="text" id="invoiceNo" class="form-input">
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="gen_date">日期</label>
+              <input type="date" id="invoiceDate" class="form-input">
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="gen_currency">货币</label>
+              <select id="invoiceCurrencySelect" class="form-input">
+                <option value="IDR">IDR (Rp)</option>
+                <option value="USD">USD ($)</option>
+                <option value="CNY">CNY (¥)</option>
+                <option value="EUR">EUR (€)</option>
+                <option value="SGD">SGD (S$)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="gen_tax_rate">税率 (%)</label>
+              <input type="number" id="invoiceTaxRate" class="form-input" value="11" min="0" max="100" step="0.5">
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="card-title" data-i18n="gen_select_products">选择产品</h3>
+          <div id="invoiceProductSelectList" class="product-select-list"></div>
+          <div id="invoiceProductSelectEmpty" class="empty-state small" style="display:none">
+            <p data-i18n="product_empty">暂无产品信息</p>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="card-title" data-i18n="gen_seal_sign">公章与签名</h3>
+          <div class="seal-sign-grid">
+            <div class="seal-sign-item">
+              <label class="form-label" data-i18n="gen_seal">公司公章</label>
+              <div class="seal-upload-area" id="invoiceSealUpload" onclick="document.getElementById('invoiceSealInput').click()">
+                <img id="invoiceSealPreview" class="seal-preview-img" style="display:none">
+                <span id="invoiceSealPlaceholder" class="seal-placeholder" data-i18n="gen_seal_hint">点击上传公章图片</span>
+              </div>
+              <input type="file" id="invoiceSealInput" accept="image/*" style="display:none" onchange="handleSealUpload(this, 'invoice')">
+              <button class="btn btn-sm btn-outline" style="margin-top:4px;width:100%" onclick="clearSeal('invoice')" data-i18n="gen_clear_seal">清除公章</button>
+            </div>
+            <div class="seal-sign-item">
+              <label class="form-label" data-i18n="gen_signature">签名</label>
+              <div class="seal-upload-area" id="invoiceSignUpload" onclick="document.getElementById('invoiceSignInput').click()">
+                <img id="invoiceSignPreview" class="seal-preview-img" style="display:none">
+                <span id="invoiceSignPlaceholder" class="seal-placeholder" data-i18n="gen_sign_hint">点击上传签名图片</span>
+              </div>
+              <input type="file" id="invoiceSignInput" accept="image/*" style="display:none" onchange="handleSignUpload(this, 'invoice')">
+              <button class="btn btn-sm btn-outline" style="margin-top:4px;width:100%" onclick="clearSign('invoice')" data-i18n="gen_clear_sign">清除签名</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="card-title" data-i18n="gen_summary">价格汇总</h3>
+          <div class="summary-list">
+            <div class="summary-row">
+              <span>Total</span>
+              <span id="invoiceSummaryTotal">0.00</span>
+            </div>
+            <div class="summary-row">
+              <span id="invoiceDppLabel">11/12 DPP</span>
+              <span id="invoiceSummaryDpp">0.00</span>
+            </div>
+            <div class="summary-row">
+              <span id="invoicePpnLabel">PPN 11%</span>
+              <span id="invoiceSummaryPpn">0.00</span>
+            </div>
+            <div class="summary-row total">
+              <span>Grand Total</span>
+              <span id="invoiceSummaryGrand">0.00</span>
+            </div>
+          </div>
+          <button id="generateInvoicePdfBtn" class="btn btn-primary btn-block" data-i18n="gen_generate_pdf">生成 PDF</button>
+        </div>
+      </div>
+      <div class="generate-preview">
+        <div class="card preview-card">
+          <div class="preview-header">
+            <h3 class="card-title" data-i18n="gen_invoice_preview">发票预览</h3>
+          </div>
+          <div id="invoicePreview" class="invoice-preview"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== Generate Quotation Tab ====== -->
+  <section id="tab-generate-quotation" class="tab-panel">
+    <div class="section-header">
+      <h2 data-i18n="gen_quotation_title">生成报价单</h2>
+      <p class="section-desc" data-i18n="gen_quotation_desc">选择卖方、买方和产品，自动计算价格并生成PDF格式报价单</p>
+    </div>
+    <div class="generate-layout">
+      <div class="generate-config">
+        <div class="card">
+          <h3 class="card-title" data-i18n="gen_doc_info">单据信息</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label" data-i18n="gen_select_seller">选择卖方</label>
+              <select id="quotationSellerSelect" class="form-input"></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="gen_select_buyer">选择买方</label>
+              <select id="quotationBuyerSelect" class="form-input"></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="gen_quotation_no">报价单编号</label>
+              <input type="text" id="quotationNo" class="form-input">
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="gen_date">日期</label>
+              <input type="date" id="quotationDate" class="form-input">
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="gen_currency">货币</label>
+              <select id="quotationCurrencySelect" class="form-input">
+                <option value="IDR">IDR (Rp)</option>
+                <option value="USD">USD ($)</option>
+                <option value="CNY">CNY (¥)</option>
+                <option value="EUR">EUR (€)</option>
+                <option value="SGD">SGD (S$)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="gen_tax_rate">税率 (%)</label>
+              <input type="number" id="quotationTaxRate" class="form-input" value="11" min="0" max="100" step="0.5">
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="card-title" data-i18n="gen_select_products">选择产品</h3>
+          <div id="quotationProductSelectList" class="product-select-list"></div>
+          <div id="quotationProductSelectEmpty" class="empty-state small" style="display:none">
+            <p data-i18n="product_empty">暂无产品信息</p>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="card-title" data-i18n="gen_seal_sign">公章与签名</h3>
+          <div class="seal-sign-grid">
+            <div class="seal-sign-item">
+              <label class="form-label" data-i18n="gen_seal">公司公章</label>
+              <div class="seal-upload-area" id="quotationSealUpload" onclick="document.getElementById('quotationSealInput').click()">
+                <img id="quotationSealPreview" class="seal-preview-img" style="display:none">
+                <span id="quotationSealPlaceholder" class="seal-placeholder" data-i18n="gen_seal_hint">点击上传公章图片</span>
+              </div>
+              <input type="file" id="quotationSealInput" accept="image/*" style="display:none" onchange="handleSealUpload(this, 'quotation')">
+              <button class="btn btn-sm btn-outline" style="margin-top:4px;width:100%" onclick="clearSeal('quotation')" data-i18n="gen_clear_seal">清除公章</button>
+            </div>
+            <div class="seal-sign-item">
+              <label class="form-label" data-i18n="gen_signature">签名</label>
+              <div class="seal-upload-area" id="quotationSignUpload" onclick="document.getElementById('quotationSignInput').click()">
+                <img id="quotationSignPreview" class="seal-preview-img" style="display:none">
+                <span id="quotationSignPlaceholder" class="seal-placeholder" data-i18n="gen_sign_hint">点击上传签名图片</span>
+              </div>
+              <input type="file" id="quotationSignInput" accept="image/*" style="display:none" onchange="handleSignUpload(this, 'quotation')">
+              <button class="btn btn-sm btn-outline" style="margin-top:4px;width:100%" onclick="clearSign('quotation')" data-i18n="gen_clear_sign">清除签名</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="card-title" data-i18n="gen_summary">价格汇总</h3>
+          <div class="summary-list">
+            <div class="summary-row">
+              <span>Total</span>
+              <span id="quotationSummaryTotal">0.00</span>
+            </div>
+            <div class="summary-row">
+              <span id="quotationDppLabel">11/12 DPP</span>
+              <span id="quotationSummaryDpp">0.00</span>
+            </div>
+            <div class="summary-row">
+              <span id="quotationPpnLabel">PPN 11%</span>
+              <span id="quotationSummaryPpn">0.00</span>
+            </div>
+            <div class="summary-row total">
+              <span>Grand Total</span>
+              <span id="quotationSummaryGrand">0.00</span>
+            </div>
+          </div>
+          <button id="generateQuotationPdfBtn" class="btn btn-primary btn-block" data-i18n="gen_generate_pdf">生成 PDF</button>
+        </div>
+      </div>
+      <div class="generate-preview">
+        <div class="card preview-card">
+          <div class="preview-header">
+            <h3 class="card-title" data-i18n="gen_quotation_preview">报价单预览</h3>
+          </div>
+          <div id="quotationPreview" class="invoice-preview"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== Generate Delivery Note Tab ====== -->
+  <section id="tab-generate-delivery" class="tab-panel">
+    <div class="section-header">
+      <div>
+        <h2 data-i18n="gen_delivery_title">生成送货单</h2>
+        <p class="section-desc" data-i18n="gen_delivery_desc">选择发货方、收货方和产品，生成PDF格式送货单</p>
+      </div>
+    </div>
+    <div class="generate-layout">
+      <div class="generate-config">
+        <div class="card">
+          <h3 class="card-title" data-i18n="gen_doc_info">单据信息</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label" data-i18n="gen_select_seller">选择卖方（发货方）</label>
+              <select id="deliverySellerSelect" class="form-input"></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="gen_select_buyer">选择买方（收货方）</label>
+              <select id="deliveryBuyerSelect" class="form-input"></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="gen_delivery_no">送货单编号</label>
+              <input type="text" id="deliveryNo" class="form-input">
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="gen_date">日期</label>
+              <input type="date" id="deliveryDate" class="form-input">
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="card-title" data-i18n="gen_select_products">选择产品</h3>
+          <div id="deliveryProductSelectList" class="product-select-list"></div>
+          <div id="deliveryProductSelectEmpty" class="empty-state small" style="display:none">
+            <p data-i18n="product_empty">暂无产品信息</p>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="card-title" data-i18n="gen_seal_sign">公章与签名</h3>
+          <div class="seal-sign-grid">
+            <div class="seal-sign-item">
+              <label class="form-label" data-i18n="gen_seal">公司公章</label>
+              <div class="seal-upload-area" id="deliverySealUpload" onclick="document.getElementById('deliverySealInput').click()">
+                <img id="deliverySealPreview" class="seal-preview-img" style="display:none">
+                <span id="deliverySealPlaceholder" class="seal-placeholder" data-i18n="gen_seal_hint">点击上传公章图片</span>
+              </div>
+              <input type="file" id="deliverySealInput" accept="image/*" style="display:none" onchange="handleSealUpload(this, 'delivery')">
+              <button class="btn btn-sm btn-outline" style="margin-top:4px;width:100%" onclick="clearSeal('delivery')" data-i18n="gen_clear_seal">清除公章</button>
+            </div>
+            <div class="seal-sign-item">
+              <label class="form-label" data-i18n="gen_signature">签名</label>
+              <div class="seal-upload-area" id="deliverySignUpload" onclick="document.getElementById('deliverySignInput').click()">
+                <img id="deliverySignPreview" class="seal-preview-img" style="display:none">
+                <span id="deliverySignPlaceholder" class="seal-placeholder" data-i18n="gen_sign_hint">点击上传签名图片</span>
+              </div>
+              <input type="file" id="deliverySignInput" accept="image/*" style="display:none" onchange="handleSignUpload(this, 'delivery')">
+              <button class="btn btn-sm btn-outline" style="margin-top:4px;width:100%" onclick="clearSign('delivery')" data-i18n="gen_clear_sign">清除签名</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="card-title" data-i18n="gen_delivery_notes">备注</h3>
+          <textarea id="deliveryNotes" class="form-textarea" rows="3" data-i18n-ph="delivery_notes_ph" placeholder="备注信息..."></textarea>
+          <button id="generateDeliveryPdfBtn" class="btn btn-primary btn-block" data-i18n="gen_generate_pdf">生成 PDF</button>
+        </div>
+      </div>
+      <div class="generate-preview">
+        <div class="card preview-card">
+          <div class="preview-header">
+            <h3 class="card-title" data-i18n="gen_delivery_preview">送货单预览</h3>
+          </div>
+          <div id="deliveryPreview" class="invoice-preview"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== History Tab ====== -->
+  <section id="tab-history" class="tab-panel">
+    <div class="section-header">
+      <div>
+        <h2 data-i18n="history_title">历史文档</h2>
+        <p class="section-desc" data-i18n="history_desc">查看、搜索和下载已生成的所有发票和报价单</p>
+      </div>
+      <button id="historyClearBtn" class="btn btn-outline btn-sm" data-i18n="history_clear">清空全部</button>
+    </div>
+    <div class="card">
+      <!-- Category filter buttons -->
+      <div class="history-filter-buttons">
+        <button class="filter-btn active" data-filter="all" data-i18n="history_filter_all">全部</button>
+        <button class="filter-btn" data-filter="invoice" data-i18n="history_filter_invoice">发票</button>
+        <button class="filter-btn" data-filter="quotation" data-i18n="history_filter_quotation">报价单</button>
+        <button class="filter-btn" data-filter="delivery" data-i18n="history_filter_delivery">送货单</button>
+      </div>
+      <!-- Date range + search + export -->
+      <div class="history-search-bar">
+        <input type="date" id="historyDateFrom" class="form-input" style="width:150px" data-i18n-ph="history_date_from" placeholder="开始日期">
+        <span style="color:#94a3b8">~</span>
+        <input type="date" id="historyDateTo" class="form-input" style="width:150px" data-i18n-ph="history_date_to" placeholder="结束日期">
+        <input type="text" id="historySearchInput" class="form-input" data-i18n-ph="history_search_ph" placeholder="搜索编号、买方名称...">
+        <button id="historyExportExcelBtn" class="btn btn-success btn-sm" data-i18n="history_export_excel">导出Excel</button>
+      </div>
+      <div id="historyList" class="history-list"></div>
+      <div id="historyEmpty" class="empty-state" style="display:none">
+        <span class="empty-icon">📭</span>
+        <p data-i18n="history_empty">暂无历史文档，生成发票或报价单后自动保存</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============ Modal: Seller Add/Edit ============ -->
+<div id="sellerModal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="sellerModalTitle" data-i18n="seller_add">添加卖方</h3>
+      <button class="modal-close" onclick="closeModal('sellerModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="sellerEditId">
+      <!-- Logo Upload -->
+      <div class="form-group">
+        <label class="form-label" data-i18n="seller_logo">公司LOGO</label>
+        <div class="logo-upload-box modal-logo" id="modalLogoUploadBox">
+          <img id="modalLogoPreview" class="logo-preview" style="display:none">
+          <div id="modalLogoPlaceholder" class="logo-placeholder">
+            <span class="upload-icon">📁</span>
+            <span data-i18n="seller_logo_upload">点击上传LOGO</span>
+          </div>
+        </div>
+        <input type="file" id="modalLogoInput" accept="image/png,image/jpeg,image/jpg" style="display:none">
+        <button id="modalRemoveLogoBtn" class="btn btn-sm btn-text-danger" style="display:none" data-i18n="seller_logo_remove">移除LOGO</button>
+      </div>
+      <div class="form-grid">
+        <div class="form-group full-width">
+          <label class="form-label" data-i18n="seller_name">公司名称 <span class="required">*</span></label>
+          <input type="text" id="sellerName" class="form-input" data-i18n-ph="seller_name_ph">
+        </div>
+        <div class="form-group full-width">
+          <label class="form-label" data-i18n="seller_address">公司地址</label>
+          <textarea id="sellerAddress" class="form-textarea" rows="2" data-i18n-ph="seller_address_ph"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-i18n="seller_email">电子邮箱</label>
+          <input type="email" id="sellerEmail" class="form-input" data-i18n-ph="seller_email_ph">
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-i18n="seller_phone">联系电话</label>
+          <input type="text" id="sellerPhone" class="form-input" data-i18n-ph="seller_phone_ph">
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-i18n="seller_legal_rep">法人名称</label>
+          <input type="text" id="sellerLegalRep" class="form-input" data-i18n-ph="seller_legal_rep_ph">
+        </div>
+      </div>
+      <hr style="margin:16px 0;border-color:#e2e8f0">
+      <h4 style="font-size:14px;font-weight:700;color:#1e293b;margin-bottom:12px" data-i18n="seller_payment_info">收款银行信息</h4>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label" data-i18n="payment_bank">银行名称</label>
+          <input type="text" id="sellerBankName" class="form-input" data-i18n-ph="payment_bank_ph">
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-i18n="payment_account_no">账号</label>
+          <input type="text" id="sellerAccountNo" class="form-input" data-i18n-ph="payment_account_no_ph">
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-i18n="payment_account_name">账户名称</label>
+          <input type="text" id="sellerAccountName" class="form-input" data-i18n-ph="payment_account_name_ph">
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-i18n="payment_swift">SWIFT Code</label>
+          <input type="text" id="sellerSwift" class="form-input" data-i18n-ph="payment_swift_ph">
+        </div>
+        <div class="form-group full-width">
+          <label class="form-label" data-i18n="payment_notes_label">备注</label>
+          <textarea id="sellerPaymentNotes" class="form-textarea" rows="2" data-i18n-ph="payment_notes_ph"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('sellerModal')" data-i18n="cancel">取消</button>
+      <button id="sellerSaveModalBtn" class="btn btn-primary" data-i18n="save">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Modal: Buyer Add/Edit ============ -->
+<div id="buyerModal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="buyerModalTitle" data-i18n="buyer_add">添加买方</h3>
+      <button class="modal-close" onclick="closeModal('buyerModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="buyerEditId">
+      <div class="form-group">
+        <label class="form-label" data-i18n="buyer_name">公司名称 <span class="required">*</span></label>
+        <input type="text" id="buyerName" class="form-input" data-i18n-ph="buyer_name_ph">
+      </div>
+      <div class="form-group">
+        <label class="form-label" data-i18n="buyer_address">公司地址</label>
+        <textarea id="buyerAddress" class="form-textarea" rows="2" data-i18n-ph="buyer_address_ph"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">税号 (NPWP) <span class="required">*</span></label>
+        <input type="text" id="buyerNpwp" class="form-input" placeholder="XX.XXX.XXX.X-XXX.XXX">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('buyerModal')" data-i18n="cancel">取消</button>
+      <button id="buyerSaveModalBtn" class="btn btn-primary" data-i18n="save">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Modal: Product Add/Edit ============ -->
+<div id="productModal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="productModalTitle" data-i18n="product_add">添加产品</h3>
+      <button class="modal-close" onclick="closeModal('productModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="productEditId">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label" data-i18n="product_name">产品名称 <span class="required">*</span></label>
+          <input type="text" id="productName" class="form-input" data-i18n-ph="product_name_ph">
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-i18n="product_model">型号</label>
+          <input type="text" id="productModel" class="form-input" data-i18n-ph="product_model_ph">
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-i18n="product_qty">数量 <span class="required">*</span></label>
+          <input type="number" id="productQty" class="form-input" min="0" step="1" value="1">
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-i18n="product_unit">单位</label>
+          <input type="text" id="productUnit" class="form-input" placeholder="pcs / set / kg" value="pcs">
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-i18n="product_unit_price">未含税单价 <span class="required">*</span></label>
+          <input type="number" id="productUnitPrice" class="form-input" min="0" step="0.01" value="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-i18n="product_total_price">未含税总价</label>
+          <input type="text" id="productTotalPrice" class="form-input" readonly>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('productModal')" data-i18n="cancel">取消</button>
+      <button id="productSaveModalBtn" class="btn btn-primary" data-i18n="save">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Toast ============ -->
+<div id="toast" class="toast" style="display:none"></div>
+
+<script src="js/app.js"></script>
+</body>
+</html>
