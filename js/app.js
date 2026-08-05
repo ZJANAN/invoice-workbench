@@ -1554,10 +1554,10 @@ function buildDeliveryHTML(seller, buyer, products, opts) {
 }
 
 // Slice a full-document canvas into A4 pages.
-// - Keeps the seal/signature block (`.invoice-seal-sign-area`) from being split
-//   across a page boundary (moves the whole block to the next page).
-// - Draws a clear page separator (border + page number) so multi-page PDFs are
-//   obviously divided.
+// Features:
+// 1) Keeps table rows (<tr>) and seal blocks (.invoice-seal-sign-area)
+//    from being split across a page boundary.
+// 2) Draws a very obvious page separator so multi-page PDFs are clearly divided.
 function renderPdfPages(pdf, canvas, imgData, invoiceDoc, margin) {
   margin = margin || 5;
   const pdfWidth = 210;
@@ -1565,33 +1565,40 @@ function renderPdfPages(pdf, canvas, imgData, invoiceDoc, margin) {
   const imgHeight = (canvas.height * imgWidth) / canvas.width;
   const pdfHeight = 297;
   const pageH = pdfHeight - margin * 2;
-  const scale = 2; // must match the html2canvas `scale` option used below
+  const scale = 2; // must match html2canvas scale option
 
-  // Seal/signature vertical intervals (mm from top of the document)
-  const sealIntervals = [];
+  // Collect protected vertical intervals that must NOT be crossed by a cut
+  const protectedIntervals = [];
   if (invoiceDoc) {
     const docRect = invoiceDoc.getBoundingClientRect();
     if (docRect.height > 0) {
       const mmPerLayoutPx = imgHeight / (docRect.height * scale);
+      // Seal/signature area
       invoiceDoc.querySelectorAll('.invoice-seal-sign-area').forEach(el => {
         const r = el.getBoundingClientRect();
         const top = (r.top - docRect.top) * mmPerLayoutPx;
         const bottom = (r.bottom - docRect.top) * mmPerLayoutPx;
-        if (bottom > 0 && top < imgHeight) sealIntervals.push({ top, bottom });
+        if (bottom > 0 && top < imgHeight) protectedIntervals.push({ top, bottom });
+      });
+      // Table rows — prevent row splitting
+      invoiceDoc.querySelectorAll('.invoice-table tbody tr').forEach(el => {
+        const r = el.getBoundingClientRect();
+        const top = (r.top - docRect.top) * mmPerLayoutPx;
+        const bottom = (r.bottom - docRect.top) * mmPerLayoutPx;
+        if (bottom > 0 && top < imgHeight && (bottom - top > 2)) protectedIntervals.push({ top, bottom });
       });
     }
   }
 
-  // Build page cut points (top mm of each page)
+  // Build initial cut points at every pageH interval
   const cuts = [];
   for (let y = 0; y < imgHeight - 0.5; y += pageH) cuts.push(y);
   if (cuts.length === 0) cuts.push(0);
 
-  // Move any boundary that lands inside a seal block up to the seal's top,
-  // so the whole seal block flows onto the next page.
+  // Shift any boundary that lands inside a protected block up to its top edge
   for (let i = 1; i < cuts.length; i++) {
     const b = cuts[i];
-    for (const s of sealIntervals) {
+    for (const s of protectedIntervals) {
       if (s.top < b && b < s.bottom) {
         cuts[i] = Math.max(cuts[i - 1] + 1, s.top);
         break;
@@ -1600,6 +1607,7 @@ function renderPdfPages(pdf, canvas, imgData, invoiceDoc, margin) {
   }
   if (cuts[cuts.length - 1] < imgHeight - 0.5) cuts.push(imgHeight);
   cuts.sort((a, b) => a - b);
+  // Deduplicate near-duplicate cuts
   const dc = [cuts[0]];
   for (let i = 1; i < cuts.length; i++) {
     if (cuts[i] - dc[dc.length - 1] > 0.3) dc.push(cuts[i]);
@@ -1610,19 +1618,42 @@ function renderPdfPages(pdf, canvas, imgData, invoiceDoc, margin) {
   for (let p = 0; p < pageCount; p++) {
     const topMm = dc[p];
     if (p > 0) pdf.addPage();
-    // white sheet background
+
+    // White background
     pdf.setFillColor(255, 255, 255);
     pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
-    // place the relevant slice of the tall image
+
+    // Place image slice
     pdf.addImage(imgData, 'PNG', margin, margin - topMm, imgWidth, imgHeight);
-    // clear page separator for multi-page docs
+
+    // Prominent page separator for multi-page PDFs
     if (pageCount > 1) {
-      pdf.setDrawColor(208, 213, 221);
-      pdf.setLineWidth(0.3);
-      pdf.rect(margin - 1.5, margin - 1.5, imgWidth + 3, pageH + 3);
-      pdf.setFontSize(8);
-      pdf.setTextColor(120, 130, 145);
-      pdf.text(`${p + 1} / ${pageCount}`, pdfWidth - margin, pdfHeight - 2.5, { align: 'right' });
+      const sepY = margin + pageH; // just below content area
+
+      // Thick dashed separator line spanning full width
+      pdf.setDrawColor(100, 116, 139);
+      pdf.setLineWidth(0.6);
+      pdf.setLineDashPattern([3, 2], 0);
+      pdf.line(margin, sepY, pdfWidth - margin, sepY);
+      pdf.setLineDashPattern([], 0); // reset to solid
+
+      // Page number banner — centered, white bg with border
+      const label = `- ${p + 1} / ${pageCount} -`;
+      pdf.setFontSize(10);
+      pdf.setTextColor(71, 85, 105);
+      const textW = pdf.getTextWidth(label);
+      const labelX = pdfWidth / 2;
+      const labelY = sepY + 4;
+
+      // White pill background behind text
+      pdf.setFillColor(255, 255, 255);
+      pdf.roundedRect(labelX - textW / 2 - 4, labelY - 3.5, textW + 8, 7, 1.5, 1.5, 'F');
+      // Border around pill
+      pdf.setDrawColor(203, 213, 225);
+      pdf.setLineWidth(0.25);
+      pdf.roundedRect(labelX - textW / 2 - 4, labelY - 3.5, textW + 8, 7, 1.5, 1.5, 'S');
+
+      pdf.text(label, labelX, labelY, { align: 'center' });
     }
   }
 }
