@@ -1727,12 +1727,12 @@ function buildDocumentHTML(seller, buyer, products, calc) {
       <div style="text-align:center;font-size:26px;font-weight:800;letter-spacing:6px;color:#1e293b;padding:2px 0 10px;border-bottom:3px solid #1e293b;margin-bottom:16px;">${docTitle}</div>
 
       <!-- Meta -->
-      <div class="invoice-meta">
+      <div class="invoice-meta invoice-meta-right">
         <div class="invoice-meta-item">
           <span class="invoice-meta-label">No.:</span>
           <span class="invoice-meta-value">${escHtml(calc.invNo || '')}</span>
-          ${calc.orderRef ? `<div class="invoice-meta-sub">${escHtml(t('gen_po_contract_label'))}: ${escHtml(calc.orderRef)}</div>` : ''}
         </div>
+        ${calc.orderRef ? `<div class="invoice-meta-item"><span class="invoice-meta-label">${escHtml(t('gen_po_contract_label'))}:</span><span class="invoice-meta-value">${escHtml(calc.orderRef)}</span></div>` : ''}
         <div class="invoice-meta-item">
           <span class="invoice-meta-label">Date:</span>
           <span class="invoice-meta-value">${dateFormatted}</span>
