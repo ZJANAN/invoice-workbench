@@ -1192,12 +1192,13 @@ function renderProductSelectList(containerId, emptyId, selectedSet, mode) {
             onclick="event.stopPropagation()">
           <button type="button" class="qty-btn" onclick="stepProductQty('${p.id}', 1, '${mode}')">+</button>
         </div>
+        <span class="qty-price">${fmtNum(p.items && p.items[0] ? p.items[0].unitPrice : bundleTotal)}</span>
         <span class="qty-total">= ${fmtNum(bundleTotal * qty)}</span>`;
     } else {
       const qty = cfg.quantities[p.id] !== undefined ? cfg.quantities[p.id] : (p.quantity || 0);
       const total = qty * (p.unitPrice || 0);
       nameHtml = escHtml(p.name);
-      metaHtml = `${escHtml(p.model || '-')} &middot; ${escHtml(p.unit || '')} &middot; ${fmtNum(p.unitPrice)}`;
+      metaHtml = `${escHtml(p.model || '-')} &middot; ${escHtml(p.unit || '')}`;
       qtyHtml = `
         <span class="qty-label">Qty:</span>
         <div class="qty-stepper">
@@ -1207,16 +1208,19 @@ function renderProductSelectList(containerId, emptyId, selectedSet, mode) {
             onclick="event.stopPropagation()">
           <button type="button" class="qty-btn" onclick="stepProductQty('${p.id}', 1, '${mode}')">+</button>
         </div>
+        <span class="qty-price">${fmtNum(p.unitPrice)} ${escHtml(p.unit || '')}</span>
         <span class="qty-total">= ${fmtNum(total)}</span>`;
     }
     return `
       <label class="product-select-item ${checked ? 'selected' : ''} ${isBundle ? 'is-bundle' : ''}" data-pid="${p.id}">
         <input type="checkbox" ${checked} onchange="toggleProduct('${p.id}', this.checked, '${mode}')">
-        <div class="product-select-info">
-          <div class="product-select-name">${nameHtml}</div>
-          <div class="product-select-meta">${metaHtml}</div>
+        <div class="product-select-body">
+          <div class="product-select-row1">
+            <span class="product-select-name">${nameHtml}</span>
+            <span class="product-select-meta">${metaHtml}</span>
+          </div>
+          <div class="product-select-row2"><div class="product-select-qty">${qtyHtml}</div></div>
         </div>
-        <div class="product-select-qty">${qtyHtml}</div>
       </label>
     `;
   }).join('');
