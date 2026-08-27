@@ -993,21 +993,24 @@ function downloadProductTemplate() {
     showToast('Error: Excel library not loaded. Please refresh.', 5000);
     return;
   }
-  const headers = ['产品名称', '型号', '数量', '单位', '未含税单价'];
+  const headers = ['产品名称(外文)', '产品名称(中文)', '型号', '数量', '单位', '未含税单价'];
   // a few empty example rows so users see the layout (empty name => skipped on import)
-  const data = [headers, ['', '', '', '', ''], ['', '', '', '', ''], ['', '', '', '', '']];
+  const data = [headers, ['', '', '', '', '', ''], ['', '', '', '', '', ''], ['', '', '', '', '', '']];
   const ws = XLSX.utils.aoa_to_sheet(data);
-  ws['!cols'] = [{ wch: 24 }, { wch: 16 }, { wch: 10 }, { wch: 10 }, { wch: 14 }];
+  ws['!cols'] = [{ wch: 22 }, { wch: 22 }, { wch: 16 }, { wch: 10 }, { wch: 10 }, { wch: 14 }];
 
   const instr = [
     ['填写说明 / Instructions'],
-    ['产品名称 (Product Name) — 必填 / required'],
+    ['产品名称(外文) (Product Name - Foreign) — 必填 / required'],
+    ['产品名称(中文) (Product Name - Chinese) — 选填，可与外文同时填写 / optional'],
     ['型号 (Model) — 选填 / optional'],
     ['数量 (Quantity) — 必填，填数字 / required, number'],
     ['单位 (Unit) — 选填，如 pcs/set/kg / optional'],
     ['未含税单价 (Unit Price, excl. tax) — 必填，填数字 / required, number'],
-    ['请勿修改表头行；名称列为空的行将被忽略。'],
-    ['Do not modify the header row; rows with empty name are ignored.']
+    ['产品名称(外文) 与 产品名称(中文) 会在导入后合并显示在产品名称中（外文在前、中文在后）。'],
+    ['On import, the foreign and Chinese names are combined into one product name (foreign first, Chinese after).'],
+    ['请勿修改表头行；外文与中文均为空的行将被忽略。'],
+    ['Do not modify the header row; rows with both name columns empty are ignored.']
   ];
   const wsInstr = XLSX.utils.aoa_to_sheet(instr);
 
@@ -1025,8 +1028,19 @@ function mapProductColumns(header) {
     }
     return -1;
   };
+  const findAll = (candidates) => {
+    const idx = [];
+    for (let i = 0; i < header.length; i++) {
+      const h = String(header[i] || '').toLowerCase();
+      if (candidates.some(c => h.includes(c.toLowerCase()))) idx.push(i);
+    }
+    return idx;
+  };
+  // Product name may be split into two columns: foreign (first) + Chinese (second)
+  const nameIdx = findAll(['产品名称', 'product name', 'name', '名称']);
   return {
-    name: find(['产品名称', 'product name', 'name']),
+    nameForeign: nameIdx.length > 0 ? nameIdx[0] : -1,
+    nameChinese: nameIdx.length > 1 ? nameIdx[1] : -1,
     model: find(['型号', 'model']),
     qty: find(['数量', 'quantity', 'qty']),
     unit: find(['单位', 'unit']),
@@ -1054,13 +1068,16 @@ function handleProductFileUpload(file) {
       const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
       if (!rows.length) { showToast(t('product_import_fail'), 5000); return; }
       const col = mapProductColumns(rows[0]);
-      if (col.name < 0) { showToast(t('product_import_no_col'), 5000); return; }
+      if (col.nameForeign < 0) { showToast(t('product_import_no_col'), 5000); return; }
 
       let added = 0, skipped = 0;
       const parsed = [];
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
-        const name = String(row[col.name] ?? '').trim();
+        const foreign = String(row[col.nameForeign] ?? '').trim();
+        const chinese = col.nameChinese >= 0 ? String(row[col.nameChinese] ?? '').trim() : '';
+        // Combine foreign + Chinese into a single product name (foreign first)
+        const name = [foreign, chinese].filter(Boolean).join(' ');
         if (!name) { skipped++; continue; }
         const model = String(row[col.model] ?? '').trim();
         const quantity = parseFloat(String(row[col.qty] ?? '').replace(/,/g, '')) || 0;
