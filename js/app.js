@@ -1267,8 +1267,8 @@ function updateInvoiceSummary() {
   const dpp = taxRate > 0 ? total * taxRate / (taxRate + 1) : total;
   const ppn = total * taxRate / 100;
   const grand = total + ppn;
-  document.getElementById('invoiceDppLabel').textContent = taxRate > 0 ? `${taxRate}/${taxRate + 1} DPP` : 'DPP';
-  document.getElementById('invoicePpnLabel').textContent = `PPN ${taxRate}%`;
+  document.getElementById('invoiceDppLabel').textContent = taxRate === 11 ? 'DPP LAINNYA 11/12' : (taxRate > 0 ? `${taxRate}/${taxRate + 1} DPP` : 'DPP');
+  document.getElementById('invoicePpnLabel').textContent = taxRate === 11 ? 'PPN 12%' : `PPN ${taxRate}%`;
   document.getElementById('invoiceSummaryTotal').textContent = fmtCurrency(total, 'invoiceCurrencySelect');
   document.getElementById('invoiceSummaryDpp').textContent = fmtCurrency(dpp, 'invoiceCurrencySelect');
   document.getElementById('invoiceSummaryPpn').textContent = fmtCurrency(ppn, 'invoiceCurrencySelect');
@@ -1937,11 +1937,11 @@ function buildDocumentHTML(seller, buyer, products, calc) {
               <span>${fmtCurrency(calc.total, calc.type === 'invoice' ? 'invoiceCurrencySelect' : 'quotationCurrencySelect')}</span>
             </div>
             <div class="invoice-total-row">
-              <span>${(calc.type === 'quotation' && calc.taxRate === 11) ? 'DPP LAINNYA 11/12' : (calc.taxRate && calc.taxRate > 0 ? `${calc.taxRate}/${calc.taxRate + 1} DPP` : 'DPP')}</span>
+              <span>${(calc.taxRate === 11) ? 'DPP LAINNYA 11/12' : (calc.taxRate && calc.taxRate > 0 ? `${calc.taxRate}/${calc.taxRate + 1} DPP` : 'DPP')}</span>
               <span>${fmtCurrency(calc.dpp, calc.type === 'invoice' ? 'invoiceCurrencySelect' : 'quotationCurrencySelect')}</span>
             </div>
             <div class="invoice-total-row">
-              <span>${(calc.type === 'quotation' && calc.taxRate === 11) ? 'PPN 12%' : `PPN ${calc.taxRate || 0}%`}</span>
+              <span>${(calc.taxRate === 11) ? 'PPN 12%' : `PPN ${calc.taxRate || 0}%`}</span>
               <span>${fmtCurrency(calc.ppn, calc.type === 'invoice' ? 'invoiceCurrencySelect' : 'quotationCurrencySelect')}</span>
             </div>
             <div class="invoice-total-row grand">
