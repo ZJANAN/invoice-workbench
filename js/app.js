@@ -1323,8 +1323,8 @@ function updateQuotationSummary() {
   const dpp = taxRate > 0 ? total * taxRate / (taxRate + 1) : total;
   const ppn = total * taxRate / 100;
   const grand = total + ppn;
-  document.getElementById('quotationDppLabel').textContent = taxRate > 0 ? `${taxRate}/${taxRate + 1} DPP` : 'DPP';
-  document.getElementById('quotationPpnLabel').textContent = `PPN ${taxRate}%`;
+  document.getElementById('quotationDppLabel').textContent = taxRate === 11 ? 'DPP LAINNYA 11/12' : (taxRate > 0 ? `${taxRate}/${taxRate + 1} DPP` : 'DPP');
+  document.getElementById('quotationPpnLabel').textContent = taxRate === 11 ? 'PPN 12%' : `PPN ${taxRate}%`;
   document.getElementById('quotationSummaryTotal').textContent = fmtCurrency(total, 'quotationCurrencySelect');
   document.getElementById('quotationSummaryDpp').textContent = fmtCurrency(dpp, 'quotationCurrencySelect');
   document.getElementById('quotationSummaryPpn').textContent = fmtCurrency(ppn, 'quotationCurrencySelect');
@@ -1937,11 +1937,11 @@ function buildDocumentHTML(seller, buyer, products, calc) {
               <span>${fmtCurrency(calc.total, calc.type === 'invoice' ? 'invoiceCurrencySelect' : 'quotationCurrencySelect')}</span>
             </div>
             <div class="invoice-total-row">
-              <span>${calc.taxRate && calc.taxRate > 0 ? `${calc.taxRate}/${calc.taxRate + 1} DPP` : 'DPP'}</span>
+              <span>${(calc.type === 'quotation' && calc.taxRate === 11) ? 'DPP LAINNYA 11/12' : (calc.taxRate && calc.taxRate > 0 ? `${calc.taxRate}/${calc.taxRate + 1} DPP` : 'DPP')}</span>
               <span>${fmtCurrency(calc.dpp, calc.type === 'invoice' ? 'invoiceCurrencySelect' : 'quotationCurrencySelect')}</span>
             </div>
             <div class="invoice-total-row">
-              <span>PPN ${calc.taxRate || 0}%</span>
+              <span>${(calc.type === 'quotation' && calc.taxRate === 11) ? 'PPN 12%' : `PPN ${calc.taxRate || 0}%`}</span>
               <span>${fmtCurrency(calc.ppn, calc.type === 'invoice' ? 'invoiceCurrencySelect' : 'quotationCurrencySelect')}</span>
             </div>
             <div class="invoice-total-row grand">
