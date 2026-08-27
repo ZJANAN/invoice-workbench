@@ -993,22 +993,24 @@ function downloadProductTemplate() {
     showToast('Error: Excel library not loaded. Please refresh.', 5000);
     return;
   }
-  const headers = ['产品名称(外文)', '产品名称(中文)', '型号', '数量', '单位', '未含税单价'];
+  const headers = ['产品名称(外文)', '产品名称(中文)', '型号(外文)', '型号(中文)', '数量', '单位', '未含税单价'];
   // a few empty example rows so users see the layout (empty name => skipped on import)
-  const data = [headers, ['', '', '', '', '', ''], ['', '', '', '', '', ''], ['', '', '', '', '', '']];
+  const data = [headers, ['', '', '', '', '', '', ''], ['', '', '', '', '', '', ''], ['', '', '', '', '', '', '']];
   const ws = XLSX.utils.aoa_to_sheet(data);
-  ws['!cols'] = [{ wch: 22 }, { wch: 22 }, { wch: 16 }, { wch: 10 }, { wch: 10 }, { wch: 14 }];
+  ws['!cols'] = [{ wch: 22 }, { wch: 22 }, { wch: 16 }, { wch: 16 }, { wch: 10 }, { wch: 10 }, { wch: 14 }];
 
   const instr = [
     ['填写说明 / Instructions'],
     ['产品名称(外文) (Product Name - Foreign) — 必填 / required'],
     ['产品名称(中文) (Product Name - Chinese) — 选填，可与外文同时填写 / optional'],
-    ['型号 (Model) — 选填 / optional'],
+    ['型号(外文) (Model - Foreign) — 选填 / optional'],
+    ['型号(中文) (Model - Chinese) — 选填，可与外文同时填写 / optional'],
     ['数量 (Quantity) — 必填，填数字 / required, number'],
     ['单位 (Unit) — 选填，如 pcs/set/kg / optional'],
     ['未含税单价 (Unit Price, excl. tax) — 必填，填数字 / required, number'],
     ['产品名称(外文) 与 产品名称(中文) 会在导入后合并显示在产品名称中（外文在前、中文在后）。'],
-    ['On import, the foreign and Chinese names are combined into one product name (foreign first, Chinese after).'],
+    ['型号(外文) 与 型号(中文) 会在导入后合并显示在型号中（外文在前、中文在后）。'],
+    ['On import, the foreign and Chinese names/models are combined (foreign first, Chinese after).'],
     ['请勿修改表头行；外文与中文均为空的行将被忽略。'],
     ['Do not modify the header row; rows with both name columns empty are ignored.']
   ];
@@ -1038,10 +1040,13 @@ function mapProductColumns(header) {
   };
   // Product name may be split into two columns: foreign (first) + Chinese (second)
   const nameIdx = findAll(['产品名称', 'product name', 'name', '名称']);
+  // Model may be split into two columns: foreign (first) + Chinese (second)
+  const modelIdx = findAll(['型号', 'model']);
   return {
     nameForeign: nameIdx.length > 0 ? nameIdx[0] : -1,
     nameChinese: nameIdx.length > 1 ? nameIdx[1] : -1,
-    model: find(['型号', 'model']),
+    modelForeign: modelIdx.length > 0 ? modelIdx[0] : -1,
+    modelChinese: modelIdx.length > 1 ? modelIdx[1] : -1,
     qty: find(['数量', 'quantity', 'qty']),
     unit: find(['单位', 'unit']),
     unitPrice: find(['未含税单价', '单价', 'unit price', 'price']),
@@ -1062,7 +1067,7 @@ function handleProductFileUpload(file) {
       let targetName = wb.SheetNames[0];
       for (const name of wb.SheetNames) {
         const h = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: false })[0] || [];
-        if (mapProductColumns(h).name >= 0) { targetName = name; break; }
+        if (mapProductColumns(h).nameForeign >= 0) { targetName = name; break; }
       }
       const ws = wb.Sheets[targetName];
       const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
@@ -1079,7 +1084,10 @@ function handleProductFileUpload(file) {
         // Combine foreign + Chinese into a single product name (foreign first)
         const name = [foreign, chinese].filter(Boolean).join(' ');
         if (!name) { skipped++; continue; }
-        const model = String(row[col.model] ?? '').trim();
+        const modelForeign = col.modelForeign >= 0 ? String(row[col.modelForeign] ?? '').trim() : '';
+        const modelChinese = col.modelChinese >= 0 ? String(row[col.modelChinese] ?? '').trim() : '';
+        // Combine foreign + Chinese into a single model (foreign first)
+        const model = [modelForeign, modelChinese].filter(Boolean).join(' ');
         const quantity = parseFloat(String(row[col.qty] ?? '').replace(/,/g, '')) || 0;
         const unit = String(row[col.unit] ?? '').trim() || 'pcs';
         const unitPrice = parseFloat(String(row[col.unitPrice] ?? '').replace(/,/g, '')) || 0;
