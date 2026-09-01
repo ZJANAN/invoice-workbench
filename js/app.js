@@ -2717,6 +2717,7 @@ function handleSealUpload(input, mode) {
     if (preview) { preview.src = e.target.result; preview.style.display = 'block'; }
     if (placeholder) placeholder.style.display = 'none';
     updatePreviewForMode(mode);
+    saveAll();
   };
   reader.readAsDataURL(file);
 }
@@ -2732,6 +2733,7 @@ function handleSignUpload(input, mode) {
     if (preview) { preview.src = e.target.result; preview.style.display = 'block'; }
     if (placeholder) placeholder.style.display = 'none';
     updatePreviewForMode(mode);
+    saveAll();
   };
   reader.readAsDataURL(file);
 }
@@ -2743,6 +2745,7 @@ function clearSeal(mode) {
   if (preview) preview.style.display = 'none';
   if (placeholder) placeholder.style.display = 'block';
   updatePreviewForMode(mode);
+  saveAll();
 }
 
 function clearSign(mode) {
@@ -2752,6 +2755,7 @@ function clearSign(mode) {
   if (preview) preview.style.display = 'none';
   if (placeholder) placeholder.style.display = 'block';
   updatePreviewForMode(mode);
+  saveAll();
 }
 
 function updatePreviewForMode(mode) {
