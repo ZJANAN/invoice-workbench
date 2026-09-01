@@ -1228,6 +1228,40 @@ body {
   color: #1e293b;
 }
 
+/* Contract clauses (terms & conditions) */
+.contract-clauses {
+  margin-top: 28px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+}
+.contract-clauses-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 10px;
+}
+.contract-clause {
+  margin-bottom: 12px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #334155;
+}
+.contract-clause-head {
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 2px;
+}
+.contract-clause-num {
+  margin-right: 6px;
+}
+.contract-clause-body {
+  white-space: pre-wrap;
+}
+.contract-clause-body.en {
+  color: #64748b;
+  margin-top: 2px;
+}
+
 .invoice-empty-preview {
   display: flex;
   align-items: center;

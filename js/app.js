@@ -135,6 +135,9 @@ const I18N = {
     gen_contract_party_b_doc: 'Party B / 乙方 (Buyer)',
     gen_contract_payment_title: 'Payment Terms / 付款条款',
     gen_contract_legal_rep: 'Legal Rep.',
+    gen_contract_art5: '第五条 付款方式（可编辑）',
+    gen_contract_art5_ph: '结算方式：送至现场前付款至100%\nsettlement method: with the payment 100% before delivery to the site.',
+    gen_contract_art5_hint: '合同下方其余六条为固定默认条款，仅第五条可在此修改。',
     // Delivery Note
     gen_delivery_title: '生成送货单',
     gen_delivery_desc: '选择发货方、收货方和产品，生成PDF格式送货单',
@@ -329,6 +332,9 @@ const I18N = {
     gen_contract_party_b_doc: 'Party B / 乙方 (Buyer)',
     gen_contract_payment_title: 'Payment Terms / 付款条款',
     gen_contract_legal_rep: 'Legal Rep.',
+    gen_contract_art5: '第五条 付款方式（可编辑）',
+    gen_contract_art5_ph: '结算方式：送至现场前付款至100%\nsettlement method: with the payment 100% before delivery to the site.',
+    gen_contract_art5_hint: '合同下方其余六条为固定默认条款，仅第五条可在此修改。',
     // Delivery Note
     gen_delivery_title: 'Generate Delivery Note',
     gen_delivery_desc: 'Select shipper, receiver and products to generate PDF delivery note.',
@@ -1459,6 +1465,10 @@ function renderGenerateContractTab() {
 
   renderProductSelectList(c.containerId, c.emptyId, state.contractSelectedProducts, 'contract');
   restoreSealSignPreview('contract');
+  const art5El = document.getElementById('contractArt5');
+  if (art5El && !art5El.value.trim()) {
+    art5El.value = '结算方式：送至现场前付款至100%\nsettlement method: with the payment 100% before delivery to the site.';
+  }
   renderContractPreview();
 }
 
@@ -1478,12 +1488,14 @@ function renderContractPreview() {
   const payment = seller || null;
   const notesEl = document.getElementById(c.notesFld);
   const notes = notesEl ? notesEl.value : '';
+  const art5El = document.getElementById('contractArt5');
+  const contractArt5 = art5El ? art5El.value : '';
 
   if (!seller && !buyer && c.selectedSet.size === 0) {
     preview.innerHTML = `<div class="invoice-empty-preview">${t(c.descKey)}</div>`;
     return;
   }
-  preview.innerHTML = buildDocumentHTML(seller, buyer, resolved, { total, dpp, ppn, grand, invNo: contractNo, invDate: contractDate, notes, payment, type: 'contract', seal: state.sealData['contract'], signature: state.signatureData['contract'], taxRate });
+  preview.innerHTML = buildDocumentHTML(seller, buyer, resolved, { total, dpp, ppn, grand, invNo: contractNo, invDate: contractDate, notes, payment, type: 'contract', seal: state.sealData['contract'], signature: state.signatureData['contract'], taxRate, contractArt5 });
 }
 
 // ============ Generate Delivery Note Tab ============
@@ -1935,6 +1947,86 @@ async function generateDeliveryPDF() {
   }
 }
 
+// ============ Contract clauses (default text, Art. 5 is user-editable) ============
+const CONTRACT_CLAUSES = [
+  {
+    num: '1',
+    zh: '买卖双方同意成交下列产品，订立条款如下：',
+    en: 'The undersigned Seller and Buyer agree following transaction, terms and conditions are specified as below:',
+  },
+  {
+    num: '2',
+    zh: '质量要求及技术标准',
+    en: 'Quality requirements and technical specifications:',
+    body: '按照本合同第一条约定的规格生产产品，质量标准按照生产厂商技术标准。卖方需保证本采购合同对应的产品符合生产国对应的法律法规要求和各项质量技术标准。',
+    bodyEn: 'In accordance with prescribed products description of Art.1, the quality standard is based on manufacturer\'s technical standard. Seller shall promise that all the products related to this contract shall meet all kinds of quality and technical standards required by the laws and regulations of the producing country.',
+  },
+  {
+    num: '3',
+    zh: '包装标准',
+    en: 'Packaging:',
+    body: '外观完好，包装应考虑运输中的防护，确保到货产品的完好性。外包装注明产品名称、规格型号、数量、材质等。',
+    bodyEn: 'The appearance is intact, and packaging should consider protection during transportation to ensure the integrity of the received products. The outer packaging should indicate the product name, specifications, quantity, material, etc.',
+  },
+  {
+    num: '4',
+    zh: '收货和验收条款',
+    en: 'Goods reception and acceptance:',
+    body: '验收标准按照本合同第二条约定的质量要求及技术标准，卖方对提供的产品质量负责，如因产品质量问题而给买方造成重大损失的应由供方负责全部赔偿。',
+    bodyEn: 'Acceptance criteria according to the Art. 2 Quality requirements and technical specifications of the present contract. The seller is responsible for the quality of the products provided. If significant losses are caused to the buyer due to product quality issues, the seller shall be responsible for full compensation.',
+  },
+  // Art. 5 is the editable one; the default bilingual text lives in DEFAULT_ART5_TEXT.
+  {
+    num: '5',
+    zh: '付款方式',
+    en: 'Terms of payment:',
+    editable: true,
+  },
+  {
+    num: '6',
+    zh: '违约责任：',
+    en: 'Liability for breach of contract:',
+    body: '双方自本合同生效后应共同履行。如任何一方私自违约，违约方应向非违约方偿付本合同金额百分之十的违约金。',
+    bodyEn: 'Both parties shall jointly perform this contract upon its effectiveness. If either party breaches the contract without authorization, the breaching party shall pay a penalty of 10% of the contract amount to the non breaching party.',
+  },
+  {
+    num: '7',
+    zh: '本合同一式两份，双方各执一份，自双方代表签字/盖章之日起生效。合同中英文两种文字具有同等法律效力，在文字解释上，若有异议，以中文解释为准。',
+    en: 'This contract is made in copies, each party holds one, becomes effective since being signed/sealed by both parties. This contract is made out in both Chinese and English of which version is equally effective. Conflicts between these two languages arising therefrom, if any, shall be subject to Chinese version.',
+  },
+];
+
+// Default bilingual text for the editable Article 5.
+const DEFAULT_ART5_TEXT = '结算方式：送至现场前付款至100%\nsettlement method: with the payment 100% before delivery to the site.';
+
+// `art5Text` is a plain string from the editable textarea (may be empty -> use default).
+function buildContractClausesHTML(art5Text) {
+  const a5 = (art5Text && art5Text.trim()) ? art5Text : DEFAULT_ART5_TEXT;
+  return CONTRACT_CLAUSES.map(cl => {
+    if (cl.editable) {
+      return `
+      <div class="contract-clause">
+        <div class="contract-clause-head">
+          <span class="contract-clause-num">第${cl.num}条 / Art. ${cl.num}</span>
+          <span class="contract-clause-title">${escHtml(cl.zh)}<br>${escHtml(cl.en)}</span>
+        </div>
+        <div class="contract-clause-body">${escHtml(a5)}</div>
+      </div>
+      `;
+    }
+    return `
+      <div class="contract-clause">
+        <div class="contract-clause-head">
+          <span class="contract-clause-num">第${cl.num}条 / Art. ${cl.num}</span>
+          <span class="contract-clause-title">${escHtml(cl.zh)}<br>${escHtml(cl.en)}</span>
+        </div>
+        ${cl.body ? `<div class="contract-clause-body">${escHtml(cl.body)}</div>` : ''}
+        ${cl.bodyEn ? `<div class="contract-clause-body en">${escHtml(cl.bodyEn)}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
 // ============ Build Document HTML (shared: invoice & quotation) ============
 function buildDocumentHTML(seller, buyer, products, calc) {
   const isQuotation = calc.type === 'quotation';
@@ -2118,6 +2210,14 @@ function buildDocumentHTML(seller, buyer, products, calc) {
           </div>
         </div>
       </div>
+
+      <!-- Contract clauses (terms) -->
+      ${isContract ? `
+      <div class="contract-clauses">
+        <div class="contract-clauses-title">合同条款 / Contract Terms &amp; Conditions</div>
+        ${buildContractClausesHTML(calc.contractArt5)}
+      </div>
+      ` : ''}
 
       <!-- Signature -->
       ${isContract ? `
@@ -2320,6 +2420,7 @@ function buildHistoryDocHTML(doc) {
     total: doc.total, dpp: doc.dpp, ppn: doc.ppn, grand: doc.grand,
     invNo: doc.docNo, invDate: doc.date, orderRef: doc.orderRef || '', notes: doc.notes || '', payment, type: doc.type,
     seal: doc.seal, signature: doc.signature, taxRate: doc.taxRate || 11,
+    contractArt5: doc.contractArt5 || '',
     currencyCode: doc.currency || 'IDR', // saved currency, not the live tab's dropdown
   });
 }
@@ -2445,10 +2546,12 @@ async function generatePDF(mode) {
   const orderRef = orderRefEl ? orderRefEl.value : '';
   const notesEl = document.getElementById(c.notesFld);
   const notes = notesEl ? notesEl.value : '';
+  const art5El = document.getElementById(mode + 'Art5');
+  const contractArt5 = art5El ? art5El.value : '';
   const currencyEl = document.getElementById(c.currencySel);
   const currency = currencyEl ? currencyEl.value : 'IDR';
 
-  const html = buildDocumentHTML(seller, buyer, resolved, { total, dpp, ppn, grand: total + ppn, invNo, invDate, orderRef, notes, payment, type: mode, seal: state.sealData[mode], signature: state.signatureData[mode], taxRate });
+  const html = buildDocumentHTML(seller, buyer, resolved, { total, dpp, ppn, grand: total + ppn, invNo, invDate, orderRef, notes, payment, type: mode, seal: state.sealData[mode], signature: state.signatureData[mode], taxRate, contractArt5 });
 
   const container = document.createElement('div');
   container.style.cssText = 'position:fixed;left:0;top:0;width:210mm;z-index:-1;';
@@ -2485,6 +2588,7 @@ async function generatePDF(mode) {
       date: invDate,
       orderRef: orderRef || '',
       notes: notes || '',
+      contractArt5: contractArt5 || '',
       sellerId: sellerId,
       buyerId: buyerId,
       productIds: selected.map(p => p.id),
@@ -2714,6 +2818,7 @@ function init() {
   document.getElementById('contractNo').addEventListener('input', renderContractPreview);
   document.getElementById('contractDate').addEventListener('change', renderContractPreview);
   document.getElementById('contractNotes').addEventListener('input', renderContractPreview);
+  document.getElementById('contractArt5').addEventListener('input', renderContractPreview);
   document.getElementById('generateContractPdfBtn').addEventListener('click', generateContractPDF);
 
   // Generate Delivery Note

@@ -72,7 +72,27 @@ const checks = [
   })()],
   ['Product row 1', html.includes('Hydraulic Pump HP-200')],
   ['Product row 2', html.includes('螺杆空压机')],
+  // 合同条款区
+  ['Contract clauses section', html.includes('合同条款 / Contract Terms &amp; Conditions') || html.includes('合同条款 / Contract Terms & Conditions')],
+  ['Clause Art. 1 present', html.includes('The undersigned Seller and Buyer agree following transaction')],
+  ['Clause Art. 5 default (zh)', html.includes('结算方式：送至现场前付款至100%')],
+  ['Clause Art. 5 default (en)', html.includes('with the payment 100% before delivery to the site')],
+  ['Clause Art. 7 present', html.includes('each party holds one, becomes effective since being signed')],
 ];
+
+// 第五条可编辑：传入 contractArt5 覆盖后，应显示自定义内容而非默认值
+const htmlEdited = sandbox.buildDocumentHTML(seller, buyer, products, {
+  total, dpp, ppn, grand, invNo: 'CTR-2026-0002', invDate: '2026-09-01',
+  payment: seller, type: 'contract', seal: '', signature: '', taxRate,
+  contractArt5: '分两期付款：签约付50%，到货付50%。\nPayment in two installments: 50% on signing, 50% on delivery.',
+});
+checks.push(
+  ['Art.5 editable: shows override (zh)', htmlEdited.includes('分两期付款：签约付50%，到货付50%')],
+  ['Art.5 editable: shows override (en)', htmlEdited.includes('Payment in two installments')],
+  ['Art.5 editable: default text gone', !htmlEdited.includes('结算方式：送至现场前付款至100%')],
+  ['Art.5 editable: other clauses intact', htmlEdited.includes('The undersigned Seller and Buyer agree following transaction')],
+);
+
 
 // ---- Online history viewer: rebuild a saved document from its stored ids ----
 // `state` is a top-level const in app.js, so it lives in the context's global lexical
