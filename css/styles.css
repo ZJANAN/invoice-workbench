@@ -1202,9 +1202,10 @@ body {
   text-align: center;
 }
 
-/* Contract: dual signature blocks (Party B left, Party A right) */
+/* Contract: dual signature blocks (Party A left, Party B right) */
 .invoice-signature.contract-sign {
   justify-content: space-between;
+  align-items: flex-end;
   gap: 40px;
   margin-top: 32px;
 }
