@@ -31,7 +31,7 @@ vm.runInContext(fs.readFileSync('js/app.js', 'utf8'), sandbox, { filename: 'app.
 const seller = {
   id: 's1', name: 'PT. Sumber Makmur', address: 'Jl. Sudirman No. 12, Jakarta',
   email: 'sales@makmur.co.id', phone: '+62 21 555 0100', legalRep: 'Budi Santoso',
-  bankName: 'BCA', accountNo: '1234567890', accountName: 'PT. Sumber Makmur', swiftCode: 'CENAIDJA',
+  bankName: 'BCA', accountNo: '1234567890', accountName: 'PT. Sumber Makmur', swiftCode: 'CENAIDJA', branchName: 'KCU Sudirman',
 };
 const buyer = { id: 'b1', name: 'CV. Mitra Sejati', address: 'Jl. Thamrin 8, Surabaya', npwp: '01.234.567.8-901.000' };
 const products = [
@@ -106,6 +106,7 @@ const contractSwiftHtml = sandbox.buildDocumentHTML(swiftOnlySeller, buyer, prod
 checks.push(
   ['Invoice: Payment Info shows with SWIFT only', invoiceSwiftHtml.includes('Payment Information') && invoiceSwiftHtml.includes('CENAIDJAXX')],
   ['Contract: Payment Information shows with SWIFT only', contractSwiftHtml.includes('Payment Information') && contractSwiftHtml.includes('CENAIDJAXX')],
+  ['Payment Info: Branch Name shown', html.includes('Branch Name:') && html.includes('KCU Sudirman')],
 );
 
 

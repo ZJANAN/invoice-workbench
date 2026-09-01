@@ -87,6 +87,8 @@ const I18N = {
     payment_account_name_ph: '请输入账户名称',
     payment_swift: 'SWIFT Code',
     payment_swift_ph: '请输入SWIFT代码',
+    payment_branch: '分行名称',
+    payment_branch_ph: '请输入分行名称',
     payment_notes_label: '备注',
     payment_notes_ph: '备注信息...',
     payment_empty: '暂无收款信息，请点击「添加收款账户」',
@@ -285,6 +287,8 @@ const I18N = {
     payment_account_name_ph: 'Enter account holder name',
     payment_swift: 'SWIFT Code',
     payment_swift_ph: 'Enter SWIFT code',
+    payment_branch: 'Branch Name',
+    payment_branch_ph: 'Enter branch name',
     payment_notes_label: 'Notes',
     payment_notes_ph: 'Additional notes...',
     payment_empty: 'No payment info yet. Click "Add Account" to create one.',
@@ -483,6 +487,7 @@ function loadAll() {
       if (!state.sellers[0].accountNo) state.sellers[0].accountNo = pmtMigrated.accountNo || '';
       if (!state.sellers[0].accountName) state.sellers[0].accountName = pmtMigrated.accountName || '';
       if (!state.sellers[0].swiftCode) state.sellers[0].swiftCode = pmtMigrated.swiftCode || '';
+      if (!state.sellers[0].branchName) state.sellers[0].branchName = pmtMigrated.branchName || '';
       if (!state.sellers[0].paymentNotes) state.sellers[0].paymentNotes = pmtMigrated.notes || '';
     }
     const b = localStorage.getItem(SK.buyers);
@@ -639,6 +644,7 @@ function openSellerModal(id) {
       document.getElementById('sellerAccountNo').value = s.accountNo || '';
       document.getElementById('sellerAccountName').value = s.accountName || '';
       document.getElementById('sellerSwift').value = s.swiftCode || '';
+      document.getElementById('sellerBranchName').value = s.branchName || '';
       document.getElementById('sellerPaymentNotes').value = s.paymentNotes || '';
       state.modalLogoData = s.logo || '';
       updateModalLogo();
@@ -655,6 +661,7 @@ function openSellerModal(id) {
     document.getElementById('sellerAccountNo').value = '';
     document.getElementById('sellerAccountName').value = '';
     document.getElementById('sellerSwift').value = '';
+    document.getElementById('sellerBranchName').value = '';
     document.getElementById('sellerPaymentNotes').value = '';
     state.modalLogoData = '';
     updateModalLogo();
@@ -716,6 +723,7 @@ function saveSeller() {
   const accountNo = document.getElementById('sellerAccountNo').value.trim();
   const accountName = document.getElementById('sellerAccountName').value.trim();
   const swiftCode = document.getElementById('sellerSwift').value.trim();
+  const branchName = document.getElementById('sellerBranchName').value.trim();
   const paymentNotes = document.getElementById('sellerPaymentNotes').value.trim();
 
   if (!name) {
@@ -728,10 +736,10 @@ function saveSeller() {
     if (s) {
       s.name = name; s.address = address; s.email = email; s.phone = phone; s.legalRep = legalRep;
       s.logo = state.modalLogoData;
-      s.bankName = bankName; s.accountNo = accountNo; s.accountName = accountName; s.swiftCode = swiftCode; s.paymentNotes = paymentNotes;
+      s.bankName = bankName; s.accountNo = accountNo; s.accountName = accountName; s.swiftCode = swiftCode; s.branchName = branchName; s.paymentNotes = paymentNotes;
     }
   } else {
-    state.sellers.push({ id: uid(), logo: state.modalLogoData, name, address, email, phone, legalRep, bankName, accountNo, accountName, swiftCode, paymentNotes });
+    state.sellers.push({ id: uid(), logo: state.modalLogoData, name, address, email, phone, legalRep, bankName, accountNo, accountName, swiftCode, branchName, paymentNotes });
   }
   saveAll();
   closeModal('sellerModal');
@@ -2125,7 +2133,7 @@ function buildDocumentHTML(seller, buyer, products, calc) {
         </div>
       </div>
     `;
-  } else if (calc.payment && (calc.payment.bankName || calc.payment.accountNo || calc.payment.accountName || calc.payment.swiftCode || calc.payment.paymentNotes)) {
+  } else if (calc.payment && (calc.payment.bankName || calc.payment.accountNo || calc.payment.accountName || calc.payment.swiftCode || calc.payment.branchName || calc.payment.paymentNotes)) {
     const p = calc.payment;
     const titleText = 'Payment Information';
     sideHTML = `
@@ -2136,6 +2144,7 @@ function buildDocumentHTML(seller, buyer, products, calc) {
           ${p.accountNo ? `<div><strong>Account No:</strong> ${escHtml(p.accountNo)}</div>` : ''}
           ${p.accountName ? `<div><strong>Account Name:</strong> ${escHtml(p.accountName)}</div>` : ''}
           ${p.swiftCode ? `<div><strong>SWIFT:</strong> ${escHtml(p.swiftCode)}</div>` : ''}
+          ${p.branchName ? `<div><strong>Branch Name:</strong> ${escHtml(p.branchName)}</div>` : ''}
           ${p.paymentNotes ? `<div style="margin-top:4px;">${escHtml(p.paymentNotes)}</div>` : ''}
           ${isContract && calc.notes ? `<div style="margin-top:8px;white-space:pre-wrap;border-top:1px solid #e2e8f0;padding-top:8px;">${escHtml(calc.notes)}</div>` : ''}
         </div>
@@ -2650,6 +2659,7 @@ function importData(file) {
         if (!state.sellers[0].accountNo) state.sellers[0].accountNo = pmt.accountNo || '';
         if (!state.sellers[0].accountName) state.sellers[0].accountName = pmt.accountName || '';
         if (!state.sellers[0].swiftCode) state.sellers[0].swiftCode = pmt.swiftCode || '';
+        if (!state.sellers[0].branchName) state.sellers[0].branchName = pmt.branchName || '';
         if (!state.sellers[0].paymentNotes) state.sellers[0].paymentNotes = pmt.notes || '';
       }
       if (data.savedDocuments) state.savedDocuments = data.savedDocuments;
