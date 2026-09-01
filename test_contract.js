@@ -63,6 +63,13 @@ const checks = [
   ['PPN 12% label (rate 11)', html.includes('PPN 12%')],
   ['DPP LAINNYA label', html.includes('DPP LAINNYA 11/12')],
   ['Dual signature area', html.includes('invoice-signature contract-sign')],
+  // 签章区必须是 甲方在左、乙方在右（取签章区块子串后比较出现顺序）
+  ['Party A left / Party B right', (() => {
+    const block = html.slice(html.indexOf('invoice-signature contract-sign'));
+    const a = block.indexOf('Party A / 甲方 (Seller)');
+    const b = block.indexOf('Party B / 乙方 (Buyer)');
+    return a > -1 && b > -1 && a < b;
+  })()],
   ['Product row 1', html.includes('Hydraulic Pump HP-200')],
   ['Product row 2', html.includes('螺杆空压机')],
 ];

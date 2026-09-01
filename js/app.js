@@ -2115,11 +2115,6 @@ function buildDocumentHTML(seller, buyer, products, calc) {
       ${isContract ? `
       <div class="invoice-signature contract-sign">
         <div class="invoice-signature-box">
-          <div style="height:60px;"></div>
-          <div class="invoice-signature-line">${escHtml((buyer && buyer.name) || '')}</div>
-          <div class="invoice-signature-label" style="margin-top:6px">${escHtml(t('gen_contract_party_b_doc'))}</div>
-        </div>
-        <div class="invoice-signature-box">
           ${(calc.seal || calc.signature) ? `
           <div class="invoice-seal-sign-area" style="margin:0 auto">
             ${calc.seal ? `<img src="${calc.seal}" class="seal-img" alt="seal">` : ''}
@@ -2128,6 +2123,11 @@ function buildDocumentHTML(seller, buyer, products, calc) {
           ` : '<div style="height:60px;"></div>'}
           <div class="invoice-signature-line">${escHtml((seller && seller.legalRep) || (seller && seller.name) || '')}</div>
           <div class="invoice-signature-label" style="margin-top:6px">${escHtml(t('gen_contract_party_a_doc'))}</div>
+        </div>
+        <div class="invoice-signature-box">
+          <div style="height:60px;"></div>
+          <div class="invoice-signature-line">${escHtml((buyer && buyer.name) || '')}</div>
+          <div class="invoice-signature-label" style="margin-top:6px">${escHtml(t('gen_contract_party_b_doc'))}</div>
         </div>
       </div>
       ` : `
