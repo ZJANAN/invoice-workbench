@@ -1182,6 +1182,22 @@ body {
   text-align: center;
 }
 
+/* Contract: dual signature blocks (Party B left, Party A right) */
+.invoice-signature.contract-sign {
+  justify-content: space-between;
+  gap: 40px;
+  margin-top: 32px;
+}
+
+.invoice-signature.contract-sign .invoice-signature-box {
+  flex: 1;
+}
+
+.invoice-signature.contract-sign .invoice-signature-line {
+  width: auto;
+  min-width: 180px;
+}
+
 .invoice-signature-line {
   width: 200px;
   border-top: 1px solid #1e293b;
@@ -1377,6 +1393,11 @@ body {
 .history-badge.delivery {
   background: #dcfce7;
   color: #15803d;
+}
+
+.history-badge.contract {
+  background: #cffafe;
+  color: #0e7490;
 }
 
 .history-item-info {

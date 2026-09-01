@@ -14,6 +14,7 @@ const I18N = {
     tab_generate_invoice: '生成发票',
     tab_generate_quotation: '生成报价单',
     tab_generate_delivery: '生成送货单',
+    tab_generate_contract: '生成合同',
     // Seller
     seller_title: '卖方信息',
     seller_desc: '管理多个卖方（供应商）信息��保存后可用于生成报价单和发票',
@@ -121,6 +122,19 @@ const I18N = {
     gen_signature: '签名',
     gen_sign_hint: '点击上传签名图片',
     gen_clear_sign: '清除签名',
+    // Contract
+    gen_contract_title: '生成销售合同',
+    gen_contract_desc: '选择甲方（卖方）、乙方（买方）和产品，计算方式与发票一致，生成PDF格式销售合同',
+    gen_contract_no: '合同编号',
+    gen_contract_party_a: '甲方（卖方）',
+    gen_contract_party_b: '乙方（买方）',
+    gen_contract_notes: '备注条款',
+    gen_contract_notes_ph: '可在此随意增加备注条款...',
+    gen_contract_preview: '合同预览',
+    gen_contract_party_a_doc: 'Party A / 甲方 (Seller)',
+    gen_contract_party_b_doc: 'Party B / 乙方 (Buyer)',
+    gen_contract_payment_title: 'Payment Terms / 付款条款',
+    gen_contract_legal_rep: 'Legal Rep.',
     // Delivery Note
     gen_delivery_title: '生成送货单',
     gen_delivery_desc: '选择发货方、收货方和产品，生成PDF格式送货单',
@@ -163,6 +177,7 @@ const I18N = {
     history_filter_invoice: '发票',
     history_filter_quotation: '报价单',
     history_filter_delivery: '送货单',
+    history_filter_contract: '合同',
     history_filter_summary: '汇总单',
     history_download: '下载PDF',
     history_delete: '删除',
@@ -195,6 +210,7 @@ const I18N = {
     tab_generate_invoice: 'Invoice',
     tab_generate_quotation: 'Quotation',
     tab_generate_delivery: 'Delivery',
+    tab_generate_contract: 'Contract',
     seller_title: 'Seller Information',
     seller_desc: 'Manage multiple seller (supplier) profiles for quotations and invoices.',
     seller_add: '+ Add Seller',
@@ -297,6 +313,19 @@ const I18N = {
     gen_signature: 'Signature',
     gen_sign_hint: 'Click to upload signature image',
     gen_clear_sign: 'Clear Signature',
+    // Contract
+    gen_contract_title: 'Generate Sales Contract',
+    gen_contract_desc: 'Select Party A (seller), Party B (buyer) and products. Calculation is identical to the invoice.',
+    gen_contract_no: 'Contract No.',
+    gen_contract_party_a: 'Party A (Seller)',
+    gen_contract_party_b: 'Party B (Buyer)',
+    gen_contract_notes: 'Terms & Remarks',
+    gen_contract_notes_ph: 'Add your own clauses here...',
+    gen_contract_preview: 'Contract Preview',
+    gen_contract_party_a_doc: 'Party A / 甲方 (Seller)',
+    gen_contract_party_b_doc: 'Party B / 乙方 (Buyer)',
+    gen_contract_payment_title: 'Payment Terms / 付款条款',
+    gen_contract_legal_rep: 'Legal Rep.',
     // Delivery Note
     gen_delivery_title: 'Generate Delivery Note',
     gen_delivery_desc: 'Select shipper, receiver and products to generate PDF delivery note.',
@@ -338,6 +367,7 @@ const I18N = {
     history_filter_invoice: 'Invoice',
     history_filter_quotation: 'Quotation',
     history_filter_delivery: 'Delivery',
+    history_filter_contract: 'Contract',
     history_filter_summary: 'Summary',
     history_download: 'Download PDF',
     history_delete: 'Delete',
@@ -371,9 +401,11 @@ const state = {
   invoiceSelectedProducts: new Set(),
   quotationSelectedProducts: new Set(),
   deliverySelectedProducts: new Set(),
+  contractSelectedProducts: new Set(),
   invoiceQuantities: {},  // productId -> qty override
   quotationQuantities: {}, // productId -> qty override
   deliveryQuantities: {},  // productId -> qty override for delivery
+  contractQuantities: {},  // productId -> qty override for contract
   sealData: {},          // mode -> base64 (invoice/quotation/delivery)
   signatureData: {},     // mode -> base64 (invoice/quotation/delivery)
   modalLogoData: '', // temp logo for seller modal
@@ -389,6 +421,7 @@ const SK = {
   invCounter: 'pi_inv_counter',
   quotCounter: 'pi_quot_counter',
   dnCounter: 'pi_dn_counter',
+  ctrCounter: 'pi_ctr_counter',
 };
 
 // ============ Storage ============
@@ -533,6 +566,7 @@ function switchTab(tabName) {
   if (tabName === 'generate-invoice') renderGenerateInvoiceTab();
   if (tabName === 'generate-quotation') renderGenerateQuotationTab();
   if (tabName === 'generate-delivery') renderGenerateDeliveryTab();
+  if (tabName === 'generate-contract') renderGenerateContractTab();
   if (tabName === 'history') renderHistoryTab();
 }
 
@@ -1171,6 +1205,13 @@ function getModeConfig(mode) {
     emptyId: 'invoiceProductSelectEmpty',
     onUpdate: () => { updateInvoiceSummary(); renderInvoicePreview(); }
   };
+  if (mode === 'contract') return {
+    selectedProducts: state.contractSelectedProducts,
+    quantities: state.contractQuantities,
+    containerId: 'contractProductSelectList',
+    emptyId: 'contractProductSelectEmpty',
+    onUpdate: () => { updateContractSummary(); renderContractPreview(); }
+  };
   // quotation
   return {
     selectedProducts: state.quotationSelectedProducts,
@@ -1284,45 +1325,80 @@ function toggleProduct(id, checked, mode) {
   cfg.onUpdate();
 }
 
-function updateInvoiceSummary() {
-  const selected = state.products.filter(p => state.invoiceSelectedProducts.has(p.id));
-  const resolved = flattenProducts(selected, state.invoiceQuantities);
-  const total = resolved.reduce((s, p) => s + (Number(p.quantity) || 0) * (Number(p.unitPrice) || 0), 0);
-  const taxRate = parseFloat(document.getElementById('invoiceTaxRate').value) || 0;
-  const dpp = taxRate > 0 ? total * taxRate / (taxRate + 1) : total;
-  const ppn = total * taxRate / 100;
-  const grand = total + ppn;
-  document.getElementById('invoiceDppLabel').textContent = taxRate === 11 ? 'DPP LAINNYA 11/12' : (taxRate > 0 ? `${taxRate}/${taxRate + 1} DPP` : 'DPP');
-  document.getElementById('invoicePpnLabel').textContent = taxRate === 11 ? 'PPN 12%' : `PPN ${taxRate}%`;
-  document.getElementById('invoiceSummaryTotal').textContent = fmtCurrency(total, 'invoiceCurrencySelect');
-  document.getElementById('invoiceSummaryDpp').textContent = fmtCurrency(dpp, 'invoiceCurrencySelect');
-  document.getElementById('invoiceSummaryPpn').textContent = fmtCurrency(ppn, 'invoiceCurrencySelect');
-  document.getElementById('invoiceSummaryGrand').textContent = fmtCurrency(grand, 'invoiceCurrencySelect');
+// Shared config for the three "money" document types (invoice / quotation / contract).
+// They all share the same calculation: total = Σ(qty × unitPrice),
+// dpp = total × rate / (rate + 1), ppn = total × rate / 100, grand = total + ppn.
+function getMoneyDocConfig(mode) {
+  return {
+    sellerSel: mode + 'SellerSelect',
+    buyerSel: mode + 'BuyerSelect',
+    noFld: mode + 'No',
+    dateFld: mode + 'Date',
+    taxFld: mode + 'TaxRate',
+    currencySel: mode + 'CurrencySelect',
+    notesFld: mode + 'Notes',
+    previewId: mode + 'Preview',
+    containerId: mode + 'ProductSelectList',
+    emptyId: mode + 'ProductSelectEmpty',
+    selectedSet: state[mode + 'SelectedProducts'],
+    quantities: state[mode + 'Quantities'],
+    dppLabelId: mode + 'DppLabel',
+    ppnLabelId: mode + 'PpnLabel',
+    totalId: mode + 'SummaryTotal',
+    dppId: mode + 'SummaryDpp',
+    ppnId: mode + 'SummaryPpn',
+    grandId: mode + 'SummaryGrand',
+    descKey: 'gen_' + mode + '_desc',
+    prefix: mode === 'invoice' ? 'Invoice' : mode === 'quotation' ? 'Quotation' : 'Contract',
+    docPrefix: mode === 'invoice' ? 'INV' : mode === 'quotation' ? 'QTN' : 'CTR',
+    counterKey: mode === 'invoice' ? SK.invCounter : mode === 'quotation' ? SK.quotCounter : SK.ctrCounter,
+  };
 }
 
-function renderInvoicePreview() {
-  updateInvoiceSummary();
-  const preview = document.getElementById('invoicePreview');
-  const sellerId = document.getElementById('invoiceSellerSelect').value;
-  const buyerId = document.getElementById('invoiceBuyerSelect').value;
-  const seller = state.sellers.find(s => s.id === sellerId);
-  const buyer = state.buyers.find(b => b.id === buyerId);
-  const selected = state.products.filter(p => state.invoiceSelectedProducts.has(p.id));
-  const resolved = flattenProducts(selected, state.invoiceQuantities);
+function computeMoneyDoc(mode) {
+  const c = getMoneyDocConfig(mode);
+  const selected = state.products.filter(p => c.selectedSet.has(p.id));
+  const resolved = flattenProducts(selected, c.quantities);
   const total = resolved.reduce((s, p) => s + (Number(p.quantity) || 0) * (Number(p.unitPrice) || 0), 0);
-  const taxRate = parseFloat(document.getElementById('invoiceTaxRate').value) || 0;
+  const taxRate = parseFloat(document.getElementById(c.taxFld).value) || 0;
   const dpp = taxRate > 0 ? total * taxRate / (taxRate + 1) : total;
   const ppn = total * taxRate / 100;
-  const invNo = document.getElementById('invoiceNo').value;
-  const invDate = document.getElementById('invoiceDate').value;
-  const orderRef = document.getElementById('invoiceOrderRef') ? document.getElementById('invoiceOrderRef').value : '';
+  return { selected, resolved, total, taxRate, dpp, ppn, grand: total + ppn };
+}
+
+function updateMoneySummary(mode) {
+  const c = getMoneyDocConfig(mode);
+  const { total, taxRate, dpp, ppn, grand } = computeMoneyDoc(mode);
+  document.getElementById(c.dppLabelId).textContent = taxRate === 11 ? 'DPP LAINNYA 11/12' : (taxRate > 0 ? `${taxRate}/${taxRate + 1} DPP` : 'DPP');
+  document.getElementById(c.ppnLabelId).textContent = taxRate === 11 ? 'PPN 12%' : `PPN ${taxRate}%`;
+  document.getElementById(c.totalId).textContent = fmtCurrency(total, c.currencySel);
+  document.getElementById(c.dppId).textContent = fmtCurrency(dpp, c.currencySel);
+  document.getElementById(c.ppnId).textContent = fmtCurrency(ppn, c.currencySel);
+  document.getElementById(c.grandId).textContent = fmtCurrency(grand, c.currencySel);
+}
+
+function updateInvoiceSummary() { updateMoneySummary('invoice'); }
+
+function renderInvoicePreview() {
+  const c = getMoneyDocConfig('invoice');
+  updateInvoiceSummary();
+  const preview = document.getElementById(c.previewId);
+  const sellerId = document.getElementById(c.sellerSel).value;
+  const buyerId = document.getElementById(c.buyerSel).value;
+  const seller = state.sellers.find(s => s.id === sellerId);
+  const buyer = state.buyers.find(b => b.id === buyerId);
+  const { resolved, total, taxRate, dpp, ppn, grand } = computeMoneyDoc('invoice');
+  const invNo = document.getElementById(c.noFld).value;
+  const invDate = document.getElementById(c.dateFld).value;
+  const orderRefEl = document.getElementById('invoiceOrderRef');
+  const orderRef = orderRefEl ? orderRefEl.value : '';
   const payment = seller || null;
 
-  if (!seller && !buyer && state.invoiceSelectedProducts.size === 0) {
-    preview.innerHTML = `<div class="invoice-empty-preview">${t('gen_invoice_desc')}</div>`;
+  if (!seller && !buyer && c.selectedSet.size === 0) {
+    preview.innerHTML = `<div class="invoice-empty-preview">${t(c.descKey)}</div>`;
     return;
   }
-  preview.innerHTML = buildDocumentHTML(seller, buyer, resolved, { total, dpp, ppn, grand: total + ppn, invNo, invDate, orderRef, payment, type: 'invoice', seal: state.sealData['invoice'], signature: state.signatureData['invoice'], taxRate });
+  preview.innerHTML = buildDocumentHTML(seller, buyer, resolved, { total, dpp, ppn, grand, invNo, invDate, orderRef, payment, type: 'invoice', seal: state.sealData['invoice'], signature: state.signatureData['invoice'], taxRate });
 }
 
 // ============ Generate Quotation Tab ============
@@ -1340,45 +1416,68 @@ function renderGenerateQuotationTab() {
   renderQuotationPreview();
 }
 
-function updateQuotationSummary() {
-  const selected = state.products.filter(p => state.quotationSelectedProducts.has(p.id));
-  const resolved = flattenProducts(selected, state.quotationQuantities);
-  const total = resolved.reduce((s, p) => s + (Number(p.quantity) || 0) * (Number(p.unitPrice) || 0), 0);
-  const taxRate = parseFloat(document.getElementById('quotationTaxRate').value) || 0;
-  const dpp = taxRate > 0 ? total * taxRate / (taxRate + 1) : total;
-  const ppn = total * taxRate / 100;
-  const grand = total + ppn;
-  document.getElementById('quotationDppLabel').textContent = taxRate === 11 ? 'DPP LAINNYA 11/12' : (taxRate > 0 ? `${taxRate}/${taxRate + 1} DPP` : 'DPP');
-  document.getElementById('quotationPpnLabel').textContent = taxRate === 11 ? 'PPN 12%' : `PPN ${taxRate}%`;
-  document.getElementById('quotationSummaryTotal').textContent = fmtCurrency(total, 'quotationCurrencySelect');
-  document.getElementById('quotationSummaryDpp').textContent = fmtCurrency(dpp, 'quotationCurrencySelect');
-  document.getElementById('quotationSummaryPpn').textContent = fmtCurrency(ppn, 'quotationCurrencySelect');
-  document.getElementById('quotationSummaryGrand').textContent = fmtCurrency(grand, 'quotationCurrencySelect');
-}
+function updateQuotationSummary() { updateMoneySummary('quotation'); }
 
 function renderQuotationPreview() {
+  const c = getMoneyDocConfig('quotation');
   updateQuotationSummary();
-  const preview = document.getElementById('quotationPreview');
-  const sellerId = document.getElementById('quotationSellerSelect').value;
-  const buyerId = document.getElementById('quotationBuyerSelect').value;
+  const preview = document.getElementById(c.previewId);
+  const sellerId = document.getElementById(c.sellerSel).value;
+  const buyerId = document.getElementById(c.buyerSel).value;
   const seller = state.sellers.find(s => s.id === sellerId);
   const buyer = state.buyers.find(b => b.id === buyerId);
-  const selected = state.products.filter(p => state.quotationSelectedProducts.has(p.id));
-  const resolved = flattenProducts(selected, state.quotationQuantities);
-  const total = resolved.reduce((s, p) => s + (Number(p.quantity) || 0) * (Number(p.unitPrice) || 0), 0);
-  const taxRate = parseFloat(document.getElementById('quotationTaxRate').value) || 0;
-  const dpp = taxRate > 0 ? total * taxRate / (taxRate + 1) : total;
-  const ppn = total * taxRate / 100;
-  const quotNo = document.getElementById('quotationNo').value;
-  const quotDate = document.getElementById('quotationDate').value;
+  const { resolved, total, taxRate, dpp, ppn, grand } = computeMoneyDoc('quotation');
+  const quotNo = document.getElementById(c.noFld).value;
+  const quotDate = document.getElementById(c.dateFld).value;
   const payment = seller || null;
-  const notes = document.getElementById('quotationNotes') ? document.getElementById('quotationNotes').value : '';
+  const notesEl = document.getElementById(c.notesFld);
+  const notes = notesEl ? notesEl.value : '';
 
-  if (!seller && !buyer && state.quotationSelectedProducts.size === 0) {
-    preview.innerHTML = `<div class="invoice-empty-preview">${t('gen_quotation_desc')}</div>`;
+  if (!seller && !buyer && c.selectedSet.size === 0) {
+    preview.innerHTML = `<div class="invoice-empty-preview">${t(c.descKey)}</div>`;
     return;
   }
-  preview.innerHTML = buildDocumentHTML(seller, buyer, resolved, { total, dpp, ppn, grand: total + ppn, invNo: quotNo, invDate: quotDate, notes, payment, type: 'quotation', seal: state.sealData['quotation'], signature: state.signatureData['quotation'], taxRate });
+  preview.innerHTML = buildDocumentHTML(seller, buyer, resolved, { total, dpp, ppn, grand, invNo: quotNo, invDate: quotDate, notes, payment, type: 'quotation', seal: state.sealData['quotation'], signature: state.signatureData['quotation'], taxRate });
+}
+
+// ============ Generate Contract Tab ============
+function renderGenerateContractTab() {
+  const c = getMoneyDocConfig('contract');
+  const noField = document.getElementById(c.noFld);
+  if (!noField.value) noField.value = genDocNo(c.docPrefix, c.counterKey);
+  const dateField = document.getElementById(c.dateFld);
+  if (!dateField.value) dateField.value = new Date().toISOString().slice(0, 10);
+
+  populateSelect(c.sellerSel, state.sellers, 'gen_no_seller_data');
+  populateSelect(c.buyerSel, state.buyers, 'gen_no_buyer_data');
+
+  renderProductSelectList(c.containerId, c.emptyId, state.contractSelectedProducts, 'contract');
+  restoreSealSignPreview('contract');
+  renderContractPreview();
+}
+
+function updateContractSummary() { updateMoneySummary('contract'); }
+
+function renderContractPreview() {
+  const c = getMoneyDocConfig('contract');
+  updateContractSummary();
+  const preview = document.getElementById(c.previewId);
+  const sellerId = document.getElementById(c.sellerSel).value;
+  const buyerId = document.getElementById(c.buyerSel).value;
+  const seller = state.sellers.find(s => s.id === sellerId);
+  const buyer = state.buyers.find(b => b.id === buyerId);
+  const { resolved, total, taxRate, dpp, ppn, grand } = computeMoneyDoc('contract');
+  const contractNo = document.getElementById(c.noFld).value;
+  const contractDate = document.getElementById(c.dateFld).value;
+  const payment = seller || null;
+  const notesEl = document.getElementById(c.notesFld);
+  const notes = notesEl ? notesEl.value : '';
+
+  if (!seller && !buyer && c.selectedSet.size === 0) {
+    preview.innerHTML = `<div class="invoice-empty-preview">${t(c.descKey)}</div>`;
+    return;
+  }
+  preview.innerHTML = buildDocumentHTML(seller, buyer, resolved, { total, dpp, ppn, grand, invNo: contractNo, invDate: contractDate, notes, payment, type: 'contract', seal: state.sealData['contract'], signature: state.signatureData['contract'], taxRate });
 }
 
 // ============ Generate Delivery Note Tab ============
@@ -1833,7 +1932,12 @@ async function generateDeliveryPDF() {
 // ============ Build Document HTML (shared: invoice & quotation) ============
 function buildDocumentHTML(seller, buyer, products, calc) {
   const isQuotation = calc.type === 'quotation';
-  const docTitle = isQuotation ? 'QUOTATION' : 'INVOICE';
+  const isContract = calc.type === 'contract';
+  const docTitle = isContract ? 'SALES CONTRACT' : (isQuotation ? 'QUOTATION' : 'INVOICE');
+  // currency <select> element id for this document type
+  const curEl = calc.type === 'invoice' ? 'invoiceCurrencySelect'
+    : calc.type === 'quotation' ? 'quotationCurrencySelect'
+    : 'contractCurrencySelect';
 
   const logoHTML = (seller && seller.logo)
     ? `<img src="${seller.logo}" class="invoice-logo" alt="logo">`
@@ -1856,6 +1960,27 @@ function buildDocumentHTML(seller, buyer, products, calc) {
       ${buyer.npwp ? `<div class="invoice-party-detail">NPWP: ${escHtml(buyer.npwp)}</div>` : ''}
     </div>
   ` : `<div class="invoice-party"><div class="invoice-party-label">Bill To</div><div class="invoice-party-detail">&mdash;</div></div>`;
+
+  // Contract shows both parties: Party A (seller) and Party B (buyer)
+  const partyAHTML = seller ? `
+    <div class="invoice-party">
+      <div class="invoice-party-label">${escHtml(t('gen_contract_party_a_doc'))}</div>
+      <div class="invoice-party-name">${escHtml(seller.name || '')}</div>
+      ${seller.address ? `<div class="invoice-party-detail">Address: ${escHtml(seller.address)}</div>` : ''}
+      ${seller.phone ? `<div class="invoice-party-detail">Phone: ${escHtml(seller.phone)}</div>` : ''}
+      ${seller.email ? `<div class="invoice-party-detail">Email: ${escHtml(seller.email)}</div>` : ''}
+      ${seller.legalRep ? `<div class="invoice-party-detail">${escHtml(t('gen_contract_legal_rep'))}: ${escHtml(seller.legalRep)}</div>` : ''}
+    </div>
+  ` : `<div class="invoice-party"><div class="invoice-party-label">${escHtml(t('gen_contract_party_a_doc'))}</div><div class="invoice-party-detail">&mdash;</div></div>`;
+
+  const partyBHTML = buyer ? `
+    <div class="invoice-party">
+      <div class="invoice-party-label">${escHtml(t('gen_contract_party_b_doc'))}</div>
+      <div class="invoice-party-name">${escHtml(buyer.name || '')}</div>
+      ${buyer.address ? `<div class="invoice-party-detail">Address: ${escHtml(buyer.address)}</div>` : ''}
+      ${buyer.npwp ? `<div class="invoice-party-detail">NPWP: ${escHtml(buyer.npwp)}</div>` : ''}
+    </div>
+  ` : `<div class="invoice-party"><div class="invoice-party-label">${escHtml(t('gen_contract_party_b_doc'))}</div><div class="invoice-party-detail">&mdash;</div></div>`;
 
   const productRows = products.map((p, i) => `
     <tr>
@@ -1902,16 +2027,25 @@ function buildDocumentHTML(seller, buyer, products, calc) {
     `;
   } else if (calc.payment && (calc.payment.bankName || calc.payment.accountNo)) {
     const p = calc.payment;
+    const titleText = isContract ? escHtml(t('gen_contract_payment_title')) : 'Payment Information';
     sideHTML = `
       <div class="invoice-payment">
-        <div class="invoice-payment-title">Payment Information</div>
+        <div class="invoice-payment-title">${titleText}</div>
         <div class="invoice-payment-content">
           ${p.bankName ? `<div><strong>Bank:</strong> ${escHtml(p.bankName)}</div>` : ''}
           ${p.accountNo ? `<div><strong>Account No:</strong> ${escHtml(p.accountNo)}</div>` : ''}
           ${p.accountName ? `<div><strong>Account Name:</strong> ${escHtml(p.accountName)}</div>` : ''}
           ${p.swiftCode ? `<div><strong>SWIFT:</strong> ${escHtml(p.swiftCode)}</div>` : ''}
           ${p.paymentNotes ? `<div style="margin-top:4px;">${escHtml(p.paymentNotes)}</div>` : ''}
+          ${isContract && calc.notes ? `<div style="margin-top:8px;white-space:pre-wrap;border-top:1px solid #e2e8f0;padding-top:8px;">${escHtml(calc.notes)}</div>` : ''}
         </div>
+      </div>
+    `;
+  } else if (isContract && calc.notes) {
+    sideHTML = `
+      <div class="invoice-payment">
+        <div class="invoice-payment-title">${escHtml(t('gen_contract_payment_title'))}</div>
+        <div class="invoice-payment-content" style="white-space:pre-wrap">${escHtml(calc.notes)}</div>
       </div>
     `;
   }
@@ -1934,7 +2068,7 @@ function buildDocumentHTML(seller, buyer, products, calc) {
       <!-- Meta -->
       <div class="invoice-meta invoice-meta-right">
         <div class="invoice-meta-item">
-          <span class="invoice-meta-label">No.:</span>
+          <span class="invoice-meta-label">${isContract ? 'Contract No.:' : 'No.:'}</span>
           <span class="invoice-meta-value">${escHtml(calc.invNo || '')}</span>
         </div>
         ${calc.orderRef ? `<div class="invoice-meta-item"><span class="invoice-meta-label">${escHtml(t('gen_po_contract_label'))}:</span><span class="invoice-meta-value">${escHtml(calc.orderRef)}</span></div>` : ''}
@@ -1946,7 +2080,7 @@ function buildDocumentHTML(seller, buyer, products, calc) {
 
       <!-- Parties -->
       <div class="invoice-parties">
-        ${buyerHTML}
+        ${isContract ? partyAHTML + partyBHTML : buyerHTML}
       </div>
 
       <!-- Products -->
@@ -1959,25 +2093,44 @@ function buildDocumentHTML(seller, buyer, products, calc) {
           <div class="invoice-totals-box">
             <div class="invoice-total-row">
               <span>Total</span>
-              <span>${fmtCurrency(calc.total, calc.type === 'invoice' ? 'invoiceCurrencySelect' : 'quotationCurrencySelect')}</span>
+              <span>${fmtCurrency(calc.total, curEl)}</span>
             </div>
             <div class="invoice-total-row">
               <span>${(calc.taxRate === 11) ? 'DPP LAINNYA 11/12' : (calc.taxRate && calc.taxRate > 0 ? `${calc.taxRate}/${calc.taxRate + 1} DPP` : 'DPP')}</span>
-              <span>${fmtCurrency(calc.dpp, calc.type === 'invoice' ? 'invoiceCurrencySelect' : 'quotationCurrencySelect')}</span>
+              <span>${fmtCurrency(calc.dpp, curEl)}</span>
             </div>
             <div class="invoice-total-row">
               <span>${(calc.taxRate === 11) ? 'PPN 12%' : `PPN ${calc.taxRate || 0}%`}</span>
-              <span>${fmtCurrency(calc.ppn, calc.type === 'invoice' ? 'invoiceCurrencySelect' : 'quotationCurrencySelect')}</span>
+              <span>${fmtCurrency(calc.ppn, curEl)}</span>
             </div>
             <div class="invoice-total-row grand">
               <span>Grand Total</span>
-              <span>${fmtCurrency(calc.grand, calc.type === 'invoice' ? 'invoiceCurrencySelect' : 'quotationCurrencySelect')}</span>
+              <span>${fmtCurrency(calc.grand, curEl)}</span>
             </div>
           </div>
         </div>
       </div>
 
       <!-- Signature -->
+      ${isContract ? `
+      <div class="invoice-signature contract-sign">
+        <div class="invoice-signature-box">
+          <div style="height:60px;"></div>
+          <div class="invoice-signature-line">${escHtml((buyer && buyer.name) || '')}</div>
+          <div class="invoice-signature-label" style="margin-top:6px">${escHtml(t('gen_contract_party_b_doc'))}</div>
+        </div>
+        <div class="invoice-signature-box">
+          ${(calc.seal || calc.signature) ? `
+          <div class="invoice-seal-sign-area" style="margin:0 auto">
+            ${calc.seal ? `<img src="${calc.seal}" class="seal-img" alt="seal">` : ''}
+            ${calc.signature ? `<img src="${calc.signature}" class="sign-img" alt="signature">` : ''}
+          </div>
+          ` : '<div style="height:60px;"></div>'}
+          <div class="invoice-signature-line">${escHtml((seller && seller.legalRep) || (seller && seller.name) || '')}</div>
+          <div class="invoice-signature-label" style="margin-top:6px">${escHtml(t('gen_contract_party_a_doc'))}</div>
+        </div>
+      </div>
+      ` : `
       <div class="invoice-signature">
         <div class="invoice-signature-box">
           ${(calc.seal || calc.signature) ? `
@@ -1991,6 +2144,7 @@ function buildDocumentHTML(seller, buyer, products, calc) {
           </div>
         </div>
       </div>
+      `}
     </div>
   `;
 }
@@ -2041,7 +2195,9 @@ function renderHistoryTab() {
       ? '<span class="history-badge invoice">INVOICE</span>'
       : d.type === 'quotation'
         ? '<span class="history-badge quotation">QUOTATION</span>'
-        : '<span class="history-badge delivery">DELIVERY</span>';
+        : d.type === 'contract'
+          ? '<span class="history-badge contract">CONTRACT</span>'
+          : '<span class="history-badge delivery">DELIVERY</span>';
     const dateStr = d.date ? new Date(d.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
     const amountHTML = (d.type === 'delivery') ? '' : `<span class="history-item-amount">${escHtml(fmtCurrency(d.grand, d.currency || 'IDR'))}</span>`;
     const metaLine = `<span>${escHtml(d.sellerName || '—')} &rarr; ${escHtml(d.buyerName || '—')}</span>`;
@@ -2098,7 +2254,7 @@ function exportHistoryToExcel() {
     : ['Type', 'Doc No.', 'Date', 'Seller Company', 'Buyer Company', 'Tax Rate(%)', 'Total', 'DPP', 'PPN', 'Grand Total', 'Currency'];
 
   const rows = docs.map(d => {
-    const typeLabel = d.type === 'invoice' ? 'Invoice' : d.type === 'quotation' ? 'Quotation' : 'Delivery';
+    const typeLabel = d.type === 'invoice' ? 'Invoice' : d.type === 'quotation' ? 'Quotation' : d.type === 'contract' ? 'Contract' : 'Delivery';
     const currency = d.currency || 'IDR';
     return [
       typeLabel,
@@ -2182,7 +2338,7 @@ async function downloadHistoryDocument(docId) {
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF('p', 'mm', 'a4');
     renderPdfPages(pdf, canvas, imgData, invoiceDoc, 5);
-    const prefix = doc.type === 'invoice' ? 'Invoice' : doc.type === 'quotation' ? 'Quotation' : doc.type === 'delivery' ? 'Delivery' : 'Summary';
+    const prefix = doc.type === 'invoice' ? 'Invoice' : doc.type === 'quotation' ? 'Quotation' : doc.type === 'contract' ? 'Contract' : doc.type === 'delivery' ? 'Delivery' : 'Summary';
     pdf.save(`${prefix}_${doc.docNo || docId}.pdf`.replace(/[\\/:*?"<>|]/g, '_'));
   } catch (err) {
     showToast('PDF Error: ' + (err.message || 'Unknown'), 6000);
@@ -2210,14 +2366,14 @@ async function generatePDF(mode) {
     return;
   }
 
-  const isInvoice = mode === 'invoice';
-  const sellerId = document.getElementById(isInvoice ? 'invoiceSellerSelect' : 'quotationSellerSelect').value;
-  const buyerId = document.getElementById(isInvoice ? 'invoiceBuyerSelect' : 'quotationBuyerSelect').value;
-  const set = isInvoice ? state.invoiceSelectedProducts : state.quotationSelectedProducts;
+  // Shared by invoice / quotation / contract (identical calculation, different element ids)
+  const c = getMoneyDocConfig(mode);
+  const sellerId = document.getElementById(c.sellerSel).value;
+  const buyerId = document.getElementById(c.buyerSel).value;
 
   if (!sellerId) { showToast(t('gen_no_seller')); switchTab('seller'); return; }
   if (!buyerId) { showToast(t('gen_no_buyer')); return; }
-  const selected = state.products.filter(p => set.has(p.id));
+  const selected = state.products.filter(p => c.selectedSet.has(p.id));
   if (selected.length === 0) { showToast(t('gen_no_products')); return; }
 
   showToast(t('gen_generating'), 8000);
@@ -2225,16 +2381,18 @@ async function generatePDF(mode) {
   const seller = state.sellers.find(s => s.id === sellerId);
   const buyer = state.buyers.find(b => b.id === buyerId);
   const payment = seller || null;
-  const resolved = flattenProducts(selected, isInvoice ? state.invoiceQuantities : state.quotationQuantities);
+  const resolved = flattenProducts(selected, c.quantities);
   const total = resolved.reduce((s, p) => s + (Number(p.quantity) || 0) * (Number(p.unitPrice) || 0), 0);
-  const taxRate = parseFloat(document.getElementById(isInvoice ? 'invoiceTaxRate' : 'quotationTaxRate').value) || 0;
+  const taxRate = parseFloat(document.getElementById(c.taxFld).value) || 0;
   const dpp = taxRate > 0 ? total * taxRate / (taxRate + 1) : total;
   const ppn = total * taxRate / 100;
-  const invNo = document.getElementById(isInvoice ? 'invoiceNo' : 'quotationNo').value;
-  const invDate = document.getElementById(isInvoice ? 'invoiceDate' : 'quotationDate').value;
-  const orderRef = isInvoice && document.getElementById('invoiceOrderRef') ? document.getElementById('invoiceOrderRef').value : '';
-  const notes = !isInvoice && document.getElementById('quotationNotes') ? document.getElementById('quotationNotes').value : '';
-  const currencyEl = document.getElementById(isInvoice ? 'invoiceCurrencySelect' : 'quotationCurrencySelect');
+  const invNo = document.getElementById(c.noFld).value;
+  const invDate = document.getElementById(c.dateFld).value;
+  const orderRefEl = document.getElementById(mode + 'OrderRef');
+  const orderRef = orderRefEl ? orderRefEl.value : '';
+  const notesEl = document.getElementById(c.notesFld);
+  const notes = notesEl ? notesEl.value : '';
+  const currencyEl = document.getElementById(c.currencySel);
   const currency = currencyEl ? currencyEl.value : 'IDR';
 
   const html = buildDocumentHTML(seller, buyer, resolved, { total, dpp, ppn, grand: total + ppn, invNo, invDate, orderRef, notes, payment, type: mode, seal: state.sealData[mode], signature: state.signatureData[mode], taxRate });
@@ -2263,8 +2421,7 @@ async function generatePDF(mode) {
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF('p', 'mm', 'a4');
     renderPdfPages(pdf, canvas, imgData, invoiceDoc, 5);
-    const prefix = isInvoice ? 'Invoice' : 'Quotation';
-    const fileName = `${prefix}_${invNo || seller.name || 'doc'}.pdf`.replace(/[\\/:*?"<>|]/g, '_');
+    const fileName = `${c.prefix}_${invNo || (seller && seller.name) || 'doc'}.pdf`.replace(/[\\/:*?"<>|]/g, '_');
     pdf.save(fileName);
 
     // Save to history
@@ -2299,6 +2456,7 @@ async function generatePDF(mode) {
 
 function generateInvoicePDF() { generatePDF('invoice'); }
 function generateQuotationPDF() { generatePDF('quotation'); }
+function generateContractPDF() { generatePDF('contract'); }
 
 // ============ Data Export/Import ============
 function exportData() {
@@ -2367,6 +2525,7 @@ function renderAll() {
   if (active === 'generate-invoice') renderGenerateInvoiceTab();
   if (active === 'generate-quotation') renderGenerateQuotationTab();
   if (active === 'generate-delivery') renderGenerateDeliveryTab();
+  if (active === 'generate-contract') renderGenerateContractTab();
   if (active === 'history') renderHistoryTab();
 }
 
@@ -2422,6 +2581,7 @@ function clearSign(mode) {
 function updatePreviewForMode(mode) {
   if (mode === 'invoice') renderInvoicePreview();
   else if (mode === 'quotation') renderQuotationPreview();
+  else if (mode === 'contract') renderContractPreview();
   else if (mode === 'delivery') renderDeliveryPreview();
 }
 
@@ -2483,6 +2643,16 @@ function init() {
   document.getElementById('quotationDate').addEventListener('change', renderQuotationPreview);
   document.getElementById('quotationNotes').addEventListener('input', renderQuotationPreview);
   document.getElementById('generateQuotationPdfBtn').addEventListener('click', generateQuotationPDF);
+
+  // Generate Contract
+  document.getElementById('contractSellerSelect').addEventListener('change', renderContractPreview);
+  document.getElementById('contractBuyerSelect').addEventListener('change', renderContractPreview);
+  document.getElementById('contractCurrencySelect').addEventListener('change', () => { updateContractSummary(); renderContractPreview(); });
+  document.getElementById('contractTaxRate').addEventListener('input', () => { updateContractSummary(); renderContractPreview(); });
+  document.getElementById('contractNo').addEventListener('input', renderContractPreview);
+  document.getElementById('contractDate').addEventListener('change', renderContractPreview);
+  document.getElementById('contractNotes').addEventListener('input', renderContractPreview);
+  document.getElementById('generateContractPdfBtn').addEventListener('click', generateContractPDF);
 
   // Generate Delivery Note
   document.getElementById('deliverySellerSelect').addEventListener('change', (e) => {

@@ -57,6 +57,10 @@
       <span class="tab-icon">🚚</span>
       <span data-i18n="tab_generate_delivery">生成送货单</span>
     </button>
+    <button class="tab-btn" data-tab="generate-contract">
+      <span class="tab-icon">📝</span>
+      <span data-i18n="tab_generate_contract">生成合同</span>
+    </button>
     <button class="tab-btn" data-tab="history">
       <span class="tab-icon">📚</span>
       <span data-i18n="tab_history">历史文档</span>
@@ -474,6 +478,117 @@
     </div>
   </section>
 
+  <!-- ====== Generate Contract Tab ====== -->
+  <section id="tab-generate-contract" class="tab-panel">
+    <div class="section-header">
+      <h2 data-i18n="gen_contract_title">生成合同</h2>
+      <p class="section-desc" data-i18n="gen_contract_desc">选择甲方（卖方）、乙方（买方）和产品，计算方式与发票一致，生成PDF格式销售合同</p>
+    </div>
+    <div class="generate-layout">
+      <div class="generate-config">
+        <div class="card">
+          <h3 class="card-title" data-i18n="gen_doc_info">单据信息</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label" data-i18n="gen_contract_party_a">甲方（卖方）</label>
+              <select id="contractSellerSelect" class="form-input"></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="gen_contract_party_b">乙方（买方）</label>
+              <select id="contractBuyerSelect" class="form-input"></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="gen_contract_no">合同编号</label>
+              <input type="text" id="contractNo" class="form-input">
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="gen_date">日期</label>
+              <input type="date" id="contractDate" class="form-input">
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="gen_currency">货币</label>
+              <select id="contractCurrencySelect" class="form-input">
+                <option value="IDR">IDR (Rp)</option>
+                <option value="USD">USD ($)</option>
+                <option value="CNY">CNY (¥)</option>
+                <option value="EUR">EUR (€)</option>
+                <option value="SGD">SGD (S$)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="gen_tax_rate">税率 (%)</label>
+              <input type="number" id="contractTaxRate" class="form-input" value="11" min="0" max="100" step="0.5">
+            </div>
+            <div class="form-group" style="grid-column: 1 / -1">
+              <label class="form-label" data-i18n="gen_contract_notes">备注条款</label>
+              <textarea id="contractNotes" class="form-textarea" rows="3" data-i18n-ph="gen_contract_notes_ph" placeholder="可在此随意增加备注条款..."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="card-title" data-i18n="gen_select_products">选择产品</h3>
+          <div id="contractProductSelectList" class="product-select-list"></div>
+          <div id="contractProductSelectEmpty" class="empty-state small" style="display:none">
+            <p data-i18n="product_empty">暂无产品信息</p>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="card-title" data-i18n="gen_seal_sign">公章与签名</h3>
+          <div class="seal-sign-grid">
+            <div class="seal-sign-item">
+              <label class="form-label" data-i18n="gen_seal">公司公章</label>
+              <div class="seal-upload-area" id="contractSealUpload" onclick="document.getElementById('contractSealInput').click()">
+                <img id="contractSealPreview" class="seal-preview-img" style="display:none">
+                <span id="contractSealPlaceholder" class="seal-placeholder" data-i18n="gen_seal_hint">点击上传公章图片</span>
+              </div>
+              <input type="file" id="contractSealInput" accept="image/*" style="display:none" onchange="handleSealUpload(this, 'contract')">
+              <button class="btn btn-sm btn-outline" style="margin-top:4px;width:100%" onclick="clearSeal('contract')" data-i18n="gen_clear_seal">清除公章</button>
+            </div>
+            <div class="seal-sign-item">
+              <label class="form-label" data-i18n="gen_signature">签名</label>
+              <div class="seal-upload-area" id="contractSignUpload" onclick="document.getElementById('contractSignInput').click()">
+                <img id="contractSignPreview" class="seal-preview-img" style="display:none">
+                <span id="contractSignPlaceholder" class="seal-placeholder" data-i18n="gen_sign_hint">点击上传签名图片</span>
+              </div>
+              <input type="file" id="contractSignInput" accept="image/*" style="display:none" onchange="handleSignUpload(this, 'contract')">
+              <button class="btn btn-sm btn-outline" style="margin-top:4px;width:100%" onclick="clearSign('contract')" data-i18n="gen_clear_sign">清除签名</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="card-title" data-i18n="gen_summary">价格汇总</h3>
+          <div class="summary-list">
+            <div class="summary-row">
+              <span>Total</span>
+              <span id="contractSummaryTotal">0.00</span>
+            </div>
+            <div class="summary-row">
+              <span id="contractDppLabel">DPP LAINNYA 11/12</span>
+              <span id="contractSummaryDpp">0.00</span>
+            </div>
+            <div class="summary-row">
+              <span id="contractPpnLabel">PPN 12%</span>
+              <span id="contractSummaryPpn">0.00</span>
+            </div>
+            <div class="summary-row total">
+              <span>Grand Total</span>
+              <span id="contractSummaryGrand">0.00</span>
+            </div>
+          </div>
+          <button id="generateContractPdfBtn" class="btn btn-primary btn-block" data-i18n="gen_generate_pdf">生成 PDF</button>
+        </div>
+      </div>
+      <div class="generate-preview">
+        <div class="card preview-card">
+          <div class="preview-header">
+            <h3 class="card-title" data-i18n="gen_contract_preview">合同预览</h3>
+          </div>
+          <div id="contractPreview" class="invoice-preview"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ====== History Tab ====== -->
   <section id="tab-history" class="tab-panel">
     <div class="section-header">
@@ -490,6 +605,7 @@
         <button class="filter-btn" data-filter="invoice" data-i18n="history_filter_invoice">发票</button>
         <button class="filter-btn" data-filter="quotation" data-i18n="history_filter_quotation">报价单</button>
         <button class="filter-btn" data-filter="delivery" data-i18n="history_filter_delivery">送货单</button>
+        <button class="filter-btn" data-filter="contract" data-i18n="history_filter_contract">合同</button>
       </div>
       <!-- Date range + search + export -->
       <div class="history-search-bar">
