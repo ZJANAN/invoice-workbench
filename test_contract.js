@@ -93,6 +93,21 @@ checks.push(
   ['Art.5 editable: other clauses intact', htmlEdited.includes('The undersigned Seller and Buyer agree following transaction')],
 );
 
+// ---- Payment Information: shows on invoice AND contract even if only SWIFT is set ----
+const swiftOnlySeller = { id: 's2', name: 'PT. Swift Only', swiftCode: 'CENAIDJAXX' };
+const invoiceSwiftHtml = sandbox.buildDocumentHTML(swiftOnlySeller, buyer, products, {
+  total, dpp, ppn, grand, invNo: 'INV-2026-0001', invDate: '2026-09-01',
+  payment: swiftOnlySeller, type: 'invoice', seal: '', signature: '', taxRate,
+});
+const contractSwiftHtml = sandbox.buildDocumentHTML(swiftOnlySeller, buyer, products, {
+  total, dpp, ppn, grand, invNo: 'CTR-2026-0003', invDate: '2026-09-01',
+  payment: swiftOnlySeller, type: 'contract', seal: '', signature: '', taxRate,
+});
+checks.push(
+  ['Invoice: Payment Info shows with SWIFT only', invoiceSwiftHtml.includes('Payment Information') && invoiceSwiftHtml.includes('CENAIDJAXX')],
+  ['Contract: Payment Terms shows with SWIFT only', contractSwiftHtml.includes('Payment Terms / 付款条款') && contractSwiftHtml.includes('CENAIDJAXX')],
+);
+
 
 // ---- Online history viewer: rebuild a saved document from its stored ids ----
 // `state` is a top-level const in app.js, so it lives in the context's global lexical
