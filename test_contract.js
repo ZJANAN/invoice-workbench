@@ -58,7 +58,7 @@ const checks = [
   ['Party B block', html.includes('Party B / 乙方 (Buyer)')],
   ['Party A name', html.includes('PT. Sumber Makmur')],
   ['Party B name', html.includes('CV. Mitra Sejati')],
-  ['Payment Terms block', html.includes('Payment Terms / 付款条款')],
+  ['Payment Information block', html.includes('Payment Information')],
   ['Custom notes rendered', html.includes('Delivery within 30 days after signing.')],
   ['PPN 12% label (rate 11)', html.includes('PPN 12%')],
   ['DPP LAINNYA label', html.includes('DPP LAINNYA 11/12')],
@@ -105,7 +105,7 @@ const contractSwiftHtml = sandbox.buildDocumentHTML(swiftOnlySeller, buyer, prod
 });
 checks.push(
   ['Invoice: Payment Info shows with SWIFT only', invoiceSwiftHtml.includes('Payment Information') && invoiceSwiftHtml.includes('CENAIDJAXX')],
-  ['Contract: Payment Terms shows with SWIFT only', contractSwiftHtml.includes('Payment Terms / 付款条款') && contractSwiftHtml.includes('CENAIDJAXX')],
+  ['Contract: Payment Information shows with SWIFT only', contractSwiftHtml.includes('Payment Information') && contractSwiftHtml.includes('CENAIDJAXX')],
 );
 
 

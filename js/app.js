@@ -2127,7 +2127,7 @@ function buildDocumentHTML(seller, buyer, products, calc) {
     `;
   } else if (calc.payment && (calc.payment.bankName || calc.payment.accountNo || calc.payment.accountName || calc.payment.swiftCode || calc.payment.paymentNotes)) {
     const p = calc.payment;
-    const titleText = isContract ? escHtml(t('gen_contract_payment_title')) : 'Payment Information';
+    const titleText = 'Payment Information';
     sideHTML = `
       <div class="invoice-payment">
         <div class="invoice-payment-title">${titleText}</div>
