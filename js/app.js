@@ -179,8 +179,11 @@ const I18N = {
     history_filter_delivery: '送货单',
     history_filter_contract: '合同',
     history_filter_summary: '汇总单',
+    history_view: '在线预览',
     history_download: '下载PDF',
     history_delete: '删除',
+    doc_view_close: '关闭',
+    doc_view_empty: '该单据的产品数据已不存在，无法预览',
     history_clear: '清空全部',
     history_confirm_clear: '确认清空全部历史文档？此操作不可恢复。',
     history_saved: '文档已保存到历史记录',
@@ -369,8 +372,11 @@ const I18N = {
     history_filter_delivery: 'Delivery',
     history_filter_contract: 'Contract',
     history_filter_summary: 'Summary',
+    history_view: 'View Online',
     history_download: 'Download PDF',
     history_delete: 'Delete',
+    doc_view_close: 'Close',
+    doc_view_empty: 'Product data for this document no longer exists.',
     history_clear: 'Clear All',
     history_confirm_clear: 'Clear all document history? This cannot be undone.',
     history_saved: 'Document saved to history.',
@@ -1934,10 +1940,12 @@ function buildDocumentHTML(seller, buyer, products, calc) {
   const isQuotation = calc.type === 'quotation';
   const isContract = calc.type === 'contract';
   const docTitle = isContract ? 'SALES CONTRACT' : (isQuotation ? 'QUOTATION' : 'INVOICE');
-  // currency <select> element id for this document type
-  const curEl = calc.type === 'invoice' ? 'invoiceCurrencySelect'
-    : calc.type === 'quotation' ? 'quotationCurrencySelect'
-    : 'contractCurrencySelect';
+  // Currency source: `calc.currencyCode` (a literal code, used when re-rendering a saved
+  // document) takes priority; otherwise fall back to the live <select> for this doc type.
+  const curEl = calc.currencyCode ||
+    (calc.type === 'invoice' ? 'invoiceCurrencySelect'
+      : calc.type === 'quotation' ? 'quotationCurrencySelect'
+      : 'contractCurrencySelect');
 
   const logoHTML = (seller && seller.logo)
     ? `<img src="${seller.logo}" class="invoice-logo" alt="logo">`
@@ -2203,7 +2211,7 @@ function renderHistoryTab() {
     const metaLine = `<span>${escHtml(d.sellerName || '—')} &rarr; ${escHtml(d.buyerName || '—')}</span>`;
     return `
       <div class="history-item">
-        <div class="history-item-left">
+        <div class="history-item-left" onclick="viewHistoryDocument('${d.id}')" title="${escHtml(t('history_view'))}">
           ${typeBadge}
           <div class="history-item-info">
             <div class="history-item-no">${escHtml(d.docNo || '—')}</div>
@@ -2215,8 +2223,9 @@ function renderHistoryTab() {
           </div>
         </div>
         <div class="history-item-actions">
-          <button class="btn btn-sm btn-primary" onclick="downloadHistoryDocument('${d.id}')">${t('history_download')}</button>
-          <button class="btn btn-sm btn-outline" onclick="deleteHistoryDocument('${d.id}')">${t('history_delete')}</button>
+          <button class="btn btn-sm btn-primary" onclick="viewHistoryDocument('${d.id}')" data-i18n="history_view">${t('history_view')}</button>
+          <button class="btn btn-sm btn-outline" onclick="downloadHistoryDocument('${d.id}')" data-i18n="history_download">${t('history_download')}</button>
+          <button class="btn btn-sm btn-outline" onclick="deleteHistoryDocument('${d.id}')" data-i18n="history_delete">${t('history_delete')}</button>
         </div>
       </div>
     `;
@@ -2290,6 +2299,64 @@ function exportHistoryToExcel() {
   showToast(lang === 'zh' ? `已导出 ${docs.length} 条记录` : `Exported ${docs.length} records`, 4000);
 }
 
+// Rebuild a saved document's HTML from the stored ids + snapshot values.
+// Shared by the online viewer and the PDF downloader.
+function buildHistoryDocHTML(doc) {
+  const seller = state.sellers.find(s => s.id === doc.sellerId);
+  const buyer = state.buyers.find(b => b.id === doc.buyerId);
+  const payment = seller || null;
+  const ids = Array.isArray(doc.productIds) ? doc.productIds : [];
+  const products = flattenProducts(state.products.filter(p => ids.includes(p.id)), null);
+
+  if (doc.type === 'delivery') {
+    return buildDeliveryHTML(seller, buyer, products, {
+      notes: doc.notes || '', shipFrom: doc.shipFrom || '', shipTo: doc.shipTo || doc.deliveryAddress || '',
+      orderRef: doc.orderRef || '', receiverName: doc.receiverName || '', receiverPhone: doc.receiverPhone || '',
+      shipperName: doc.shipperName || '', shipperPhone: doc.shipperPhone || '',
+      docNo: doc.docNo, docDate: doc.date, seal: doc.seal, signature: doc.signature,
+    });
+  }
+  return buildDocumentHTML(seller, buyer, products, {
+    total: doc.total, dpp: doc.dpp, ppn: doc.ppn, grand: doc.grand,
+    invNo: doc.docNo, invDate: doc.date, orderRef: doc.orderRef || '', notes: doc.notes || '', payment, type: doc.type,
+    seal: doc.seal, signature: doc.signature, taxRate: doc.taxRate || 11,
+    currencyCode: doc.currency || 'IDR', // saved currency, not the live tab's dropdown
+  });
+}
+
+function docTypeLabel(type) {
+  return type === 'invoice' ? 'INVOICE'
+    : type === 'quotation' ? 'QUOTATION'
+    : type === 'contract' ? 'CONTRACT'
+    : type === 'delivery' ? 'DELIVERY' : 'DOCUMENT';
+}
+
+// ============ Online Document Viewer ============
+let currentDocViewId = null;
+
+function viewHistoryDocument(docId) {
+  const doc = state.savedDocuments.find(d => d.id === docId);
+  if (!doc) { showToast(lang === 'zh' ? '未找到该文档' : 'Document not found'); return; }
+
+  currentDocViewId = docId;
+  const body = document.getElementById('docViewBody');
+  body.innerHTML = buildHistoryDocHTML(doc);
+  document.getElementById('docViewModalTitle').textContent =
+    `${docTypeLabel(doc.type)} · ${doc.docNo || '—'}`;
+  document.getElementById('docViewModal').style.display = 'flex';
+}
+
+function closeDocView() {
+  document.getElementById('docViewModal').style.display = 'none';
+  document.getElementById('docViewBody').innerHTML = '';
+  currentDocViewId = null;
+}
+
+function downloadCurrentDocView() {
+  if (!currentDocViewId) return;
+  downloadHistoryDocument(currentDocViewId);
+}
+
 async function downloadHistoryDocument(docId) {
   const doc = state.savedDocuments.find(d => d.id === docId);
   if (!doc) { showToast('Document not found'); return; }
@@ -2301,21 +2368,7 @@ async function downloadHistoryDocument(docId) {
 
   showToast(t('gen_generating'), 8000);
 
-  const seller = state.sellers.find(s => s.id === doc.sellerId);
-  const buyer = state.buyers.find(b => b.id === doc.buyerId);
-  const payment = seller || null;
-  const products = flattenProducts(state.products.filter(p => doc.productIds.includes(p.id)), null);
-
-  let html;
-  if (doc.type === 'delivery') {
-    html = buildDeliveryHTML(seller, buyer, products, { notes: doc.notes || '', shipFrom: doc.shipFrom || '', shipTo: doc.shipTo || doc.deliveryAddress || '', orderRef: doc.orderRef || '', receiverName: doc.receiverName || '', receiverPhone: doc.receiverPhone || '', shipperName: doc.shipperName || '', shipperPhone: doc.shipperPhone || '', docNo: doc.docNo, docDate: doc.date, seal: doc.seal, signature: doc.signature });
-  } else {
-    html = buildDocumentHTML(seller, buyer, products, {
-      total: doc.total, dpp: doc.dpp, ppn: doc.ppn, grand: doc.grand,
-      invNo: doc.docNo, invDate: doc.date, orderRef: doc.orderRef || '', notes: doc.notes || '', payment, type: doc.type,
-      seal: doc.seal, signature: doc.signature, taxRate: doc.taxRate || 11
-    });
-  }
+  const html = buildHistoryDocHTML(doc);
 
   const container = document.createElement('div');
   container.style.cssText = 'position:fixed;left:0;top:0;width:210mm;z-index:-1;';
@@ -2512,7 +2565,16 @@ function closeModal(modalId) {
 }
 document.addEventListener('mousedown', (e) => {
   if (e.target.classList && e.target.classList.contains('modal-overlay')) {
+    if (e.target.id === 'docViewModal') { closeDocView(); return; }
     e.target.style.display = 'none';
+  }
+});
+
+// ESC closes the online document viewer
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const m = document.getElementById('docViewModal');
+    if (m && m.style.display !== 'none') closeDocView();
   }
 });
 

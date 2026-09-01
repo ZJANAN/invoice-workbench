@@ -74,6 +74,31 @@ const checks = [
   ['Product row 2', html.includes('螺杆空压机')],
 ];
 
+// ---- Online history viewer: rebuild a saved document from its stored ids ----
+// `state` is a top-level const in app.js, so it lives in the context's global lexical
+// scope rather than on the sandbox object — read it back with a tiny script.
+const appState = vm.runInContext('state', sandbox);
+appState.sellers.push(seller);
+appState.buyers.push(buyer);
+appState.products.push(...products);
+
+const savedDoc = {
+  id: 'd1', type: 'contract', docNo: 'CTR-2026-0001', date: '2026-09-01',
+  sellerId: 's1', buyerId: 'b1', productIds: ['p1', 'p2'],
+  currency: 'USD', taxRate: 11, total, dpp, ppn, grand,
+  sellerName: seller.name, buyerName: buyer.name, seal: '', signature: '',
+};
+const histHtml = sandbox.buildHistoryDocHTML(savedDoc);
+
+checks.push(
+  ['[history] rebuilds contract', histHtml.includes('SALES CONTRACT')],
+  ['[history] doc no preserved', histHtml.includes('CTR-2026-0001')],
+  ['[history] products restored', histHtml.includes('Hydraulic Pump HP-200')],
+  // 关键：必须用存档里的货币(USD)，而不是当前页签下拉框的现值(IDR)
+  ['[history] uses SAVED currency USD', histHtml.includes('$ ') && !histHtml.includes('Rp')],
+  ['[history] type label', sandbox.docTypeLabel('contract') === 'CONTRACT'],
+);
+
 // Regression: invoice & quotation must render exactly as before
 const invHtml = sandbox.buildDocumentHTML(seller, buyer, products, {
   total, dpp, ppn, grand, invNo: 'INV-2026-0001', invDate: '2026-09-01', orderRef: 'PO2026-001',

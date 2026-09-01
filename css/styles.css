@@ -697,6 +697,26 @@ body {
   border-top: 1px solid var(--border);
 }
 
+/* --- Online Document Viewer (history) --- */
+.doc-view-box {
+  max-width: 1000px;
+}
+
+.doc-view-body {
+  padding: 20px;
+  background: #f8fafc;
+  max-height: calc(90vh - 140px);
+  overflow: auto;
+}
+
+.doc-view-body .invoice-doc {
+  margin: 0 auto;
+}
+
+.history-item-left {
+  cursor: pointer;
+}
+
 /* --- Generate Layout --- */
 .generate-layout {
   display: grid;
