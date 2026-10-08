@@ -147,7 +147,7 @@ const I18N = {
     gen_order_select_seller: '收货方',
     gen_order_select_buyer: '供应商',
     gen_order_buyer_title: 'SUPPLIER/供应商',
-    gen_order_consignee_title: '收货方 / Consignee',
+    gen_order_consignee_title: 'CONSIGNEE/收货方',
     gen_order_notes_title: '备注 / Remarks',
     gen_order_no: '订单编号',
     gen_order_preview: '订单预览',
@@ -359,8 +359,8 @@ const I18N = {
     gen_order_desc: 'Select consignee, supplier and products, auto-calculate and generate PDF purchase order.',
     gen_order_select_seller: 'Consignee',
     gen_order_select_buyer: 'Supplier',
-    gen_order_buyer_title: 'SUPPLIER / 供应商',
-    gen_order_consignee_title: 'Consignee / 收货方',
+    gen_order_buyer_title: 'SUPPLIER/供应商',
+    gen_order_consignee_title: 'CONSIGNEE/收货方',
     gen_order_notes_title: 'Remarks / 备注',
     gen_order_no: 'Order No.',
     gen_order_preview: 'Order Preview',
@@ -1641,13 +1641,21 @@ function renderDeliveryPreview() {
   preview.innerHTML = buildDeliveryHTML(seller, buyer, resolved, { notes, shipFrom, shipTo, orderRef, receiverName, receiverPhone, shipperName, shipperPhone, seal: state.sealData['delivery'], signature: state.signatureData['delivery'] });
 }
 
+// Bilingual label helper for document BODY text: renders "English / 中文".
+// The big title heading (INVOICE / QUOTATION / ...) stays English-only per request.
+function bi(en, zh) {
+  return en + ' / ' + zh;
+}
+
 function buildDeliveryHTML(seller, buyer, products, opts) {
   const DELIVERY_FIXED_NOTE = 'Please check the quantity and quality upon receipt. Goods cannot be returned once the Delivery Note has been signed and acknowledged. Thank you for your cooperation.';
+  const DELIVERY_FIXED_NOTE_ZH = '请于收货时核对数量与品质。送货单一经签字确认，货物恕不退换。感谢您的配合。';
 
   const logoHTML = (seller && seller.logo)
     ? `<img src="${seller.logo}" class="invoice-logo" alt="logo">`
     : '';
 
+  // Letterhead (top-left): English-only, same as every other document type.
   const companyInfo = seller ? `
     <div>
       <div class="invoice-company-name">${escHtml(seller.name || '')}</div>
@@ -1661,9 +1669,9 @@ function buildDeliveryHTML(seller, buyer, products, opts) {
     <div class="invoice-party">
       <div class="invoice-party-label">Ship From / 发货方</div>
       <div class="invoice-party-name">${escHtml(seller.name || '')}</div>
-      ${opts.shipFrom ? `<div class="invoice-party-detail">${escHtml(opts.shipFrom)}</div>` : (seller.address ? `<div class="invoice-party-detail">Address: ${escHtml(seller.address)}</div>` : '')}
-      ${opts.shipperName ? `<div class="invoice-party-detail">Shipper Name: ${escHtml(opts.shipperName)}</div>` : ''}
-      ${opts.shipperPhone ? `<div class="invoice-party-detail">Shipper Phone: ${escHtml(opts.shipperPhone)}</div>` : ''}
+      ${opts.shipFrom ? `<div class="invoice-party-detail">${escHtml(opts.shipFrom)}</div>` : (seller.address ? `<div class="invoice-party-detail">${bi('Address','地址')}: ${escHtml(seller.address)}</div>` : '')}
+      ${opts.shipperName ? `<div class="invoice-party-detail">${bi('Shipper Name','发货人姓名')}: ${escHtml(opts.shipperName)}</div>` : ''}
+      ${opts.shipperPhone ? `<div class="invoice-party-detail">${bi('Shipper Phone','发货人电话')}: ${escHtml(opts.shipperPhone)}</div>` : ''}
     </div>
   ` : `<div class="invoice-party"><div class="invoice-party-label">Ship From / 发货方</div><div class="invoice-party-detail">&mdash;</div></div>`;
 
@@ -1671,9 +1679,9 @@ function buildDeliveryHTML(seller, buyer, products, opts) {
     <div class="invoice-party">
       <div class="invoice-party-label">Ship To / 收货方</div>
       <div class="invoice-party-name">${escHtml(buyer.name || '')}</div>
-      ${opts.shipTo ? `<div class="invoice-party-detail">${escHtml(opts.shipTo)}</div>` : (buyer.address ? `<div class="invoice-party-detail">Address: ${escHtml(buyer.address)}</div>` : '')}
-      ${opts.receiverName ? `<div class="invoice-party-detail">Receiver Name: ${escHtml(opts.receiverName)}</div>` : ''}
-      ${opts.receiverPhone ? `<div class="invoice-party-detail">Receiver Phone: ${escHtml(opts.receiverPhone)}</div>` : ''}
+      ${opts.shipTo ? `<div class="invoice-party-detail">${escHtml(opts.shipTo)}</div>` : (buyer.address ? `<div class="invoice-party-detail">${bi('Address','地址')}: ${escHtml(buyer.address)}</div>` : '')}
+      ${opts.receiverName ? `<div class="invoice-party-detail">${bi('Receiver Name','收货人姓名')}: ${escHtml(opts.receiverName)}</div>` : ''}
+      ${opts.receiverPhone ? `<div class="invoice-party-detail">${bi('Receiver Phone','收货人电话')}: ${escHtml(opts.receiverPhone)}</div>` : ''}
     </div>
   ` : `<div class="invoice-party"><div class="invoice-party-label">Ship To / 收货方</div><div class="invoice-party-detail">&mdash;</div></div>`;
 
@@ -1692,10 +1700,10 @@ function buildDeliveryHTML(seller, buyer, products, opts) {
       <thead>
         <tr>
           <th class="center" style="width:30px">#</th>
-          <th style="width:280px">Description</th>
-          <th style="width:90px" class="col-model">Model</th>
-          <th class="center" style="width:60px">Qty</th>
-          <th class="center" style="width:60px">Unit</th>
+          <th style="width:220px">${bi('Description','产品描述')}</th>
+          <th style="width:120px" class="col-model">${bi('Model','型号')}</th>
+          <th class="center" style="width:80px">${bi('Qty','数量')}</th>
+          <th class="center" style="width:80px">${bi('Unit','单位')}</th>
         </tr>
       </thead>
       <tbody>${productRows}</tbody>
@@ -1705,12 +1713,13 @@ function buildDeliveryHTML(seller, buyer, products, opts) {
   const fixedNoteHTML = `
     <div class="invoice-terms delivery-fixed-note" style="margin-top:24px">
       <div class="invoice-terms-content" style="text-align:justify;text-justify:inter-word">${escHtml(DELIVERY_FIXED_NOTE)}</div>
+      <div class="invoice-terms-content" style="text-align:justify;text-justify:inter-word;margin-top:4px;color:#475569">${escHtml(DELIVERY_FIXED_NOTE_ZH)}</div>
     </div>
   `;
 
   const notesHTML = opts.notes ? `
     <div class="invoice-terms" style="margin-top:16px">
-      <div class="invoice-terms-title">Notes</div>
+      <div class="invoice-terms-title">${bi('Notes','备注')}</div>
       <div class="invoice-terms-content">${escHtml(opts.notes)}</div>
     </div>
   ` : '';
@@ -1729,17 +1738,20 @@ function buildDeliveryHTML(seller, buyer, products, opts) {
         </div>
       </div>
 
-      <!-- Document Title -->
-      <div style="text-align:center;font-size:26px;font-weight:800;letter-spacing:6px;color:#1e293b;padding:2px 0 10px;border-bottom:3px solid #1e293b;margin-bottom:16px;">DELIVERY NOTE</div>
+      <!-- Document Title + Chinese subtitle -->
+      <div class="invoice-doc-title">
+        <div class="invoice-doc-title-main">DELIVERY NOTE</div>
+        <div class="invoice-doc-title-sub"><span>送货单</span></div>
+      </div>
 
       <!-- Meta -->
       <div class="invoice-meta invoice-meta-right">
         <div class="invoice-meta-item">
-          <span class="invoice-meta-label">Delivery No.:</span>
+          <span class="invoice-meta-label">Delivery No. / 送货单号:</span>
           <span class="invoice-meta-value">${escHtml(docNo)}</span>
         </div>
         <div class="invoice-meta-item">
-          <span class="invoice-meta-label">Delivery Date:</span>
+          <span class="invoice-meta-label">Delivery Date / 送货日期:</span>
           <span class="invoice-meta-value">${dateFormatted}</span>
         </div>
         ${opts.orderRef ? `<div class="invoice-meta-item"><span class="invoice-meta-label">Po No./Contract No.:</span><span class="invoice-meta-value">${escHtml(opts.orderRef)}</span></div>` : ''}
@@ -1765,14 +1777,14 @@ function buildDeliveryHTML(seller, buyer, products, opts) {
             ${opts.seal ? `<img src="${opts.seal}" class="seal-img" alt="seal">` : ''}
             ${opts.signature ? `<img src="${opts.signature}" class="sign-img" alt="signature">` : ''}
           </div>
-          <div class="invoice-signature-line" style="width:220px">
+          <div class="invoice-signature-line">
             ${escHtml((seller && seller.name) || '')}
           </div>
           <div class="invoice-signature-sub">Shipper / 发货方</div>
         </div>
         <div class="invoice-signature-box">
-          <div style="height:150px"></div>
-          <div class="invoice-signature-line" style="width:220px">
+          <div class="invoice-seal-sign-area"></div>
+          <div class="invoice-signature-line">
             ${escHtml((buyer && buyer.name) || '')}
           </div>
           <div class="invoice-signature-sub">Receiver / 收货方</div>
@@ -2158,7 +2170,14 @@ function buildDocumentHTML(seller, buyer, products, calc) {
   const isQuotation = calc.type === 'quotation';
   const isContract = calc.type === 'contract';
   const isOrder = calc.type === 'order';
+  const isInvoice = calc.type === 'invoice';
+  // Body label helper: the INVOICE body is English-only; every other document type
+  // (quotation / contract / order) uses bilingual "English / 中文" labels.
+  const L = (en, zh) => (isInvoice ? en : en + ' / ' + zh);
   const docTitle = isContract ? 'SALES CONTRACT' : isOrder ? 'PURCHASE ORDER' : (isQuotation ? 'QUOTATION' : 'INVOICE');
+  // Chinese line under the big title — only for quotation (报价单) and order (订单).
+  // INVOICE stays fully English; SALES CONTRACT was not requested.
+  const docSubTitle = isQuotation ? '报价单' : isOrder ? '订单' : '';
   // Currency source: `calc.currencyCode` (a literal code, used when re-rendering a saved
   // document) takes priority; otherwise fall back to the live <select> for this doc type.
   const curEl = calc.currencyCode ||
@@ -2171,6 +2190,7 @@ function buildDocumentHTML(seller, buyer, products, calc) {
     ? `<img src="${seller.logo}" class="invoice-logo" alt="logo">`
     : '';
 
+  // Letterhead (top-left): deliberately English-only on EVERY document type.
   const companyInfo = seller ? `
     <div>
       <div class="invoice-company-name">${escHtml(seller.name || '')}</div>
@@ -2182,22 +2202,22 @@ function buildDocumentHTML(seller, buyer, products, calc) {
 
   const buyerHTML = buyer ? `
     <div class="invoice-party">
-      <div class="invoice-party-label">Bill To</div>
+      <div class="invoice-party-label">${L('Bill To','买方')}</div>
       <div class="invoice-party-name">${escHtml(buyer.name || '')}</div>
-      ${buyer.address ? `<div class="invoice-party-detail">Address: ${escHtml(buyer.address)}</div>` : ''}
-      ${buyer.npwp ? `<div class="invoice-party-detail">NPWP: ${escHtml(buyer.npwp)}</div>` : ''}
+      ${buyer.address ? `<div class="invoice-party-detail">${L('Address','地址')}: ${escHtml(buyer.address)}</div>` : ''}
+      ${buyer.npwp ? `<div class="invoice-party-detail">${L('NPWP','税号')}: ${escHtml(buyer.npwp)}</div>` : ''}
     </div>
-  ` : `<div class="invoice-party"><div class="invoice-party-label">Bill To</div><div class="invoice-party-detail">&mdash;</div></div>`;
+  ` : `<div class="invoice-party"><div class="invoice-party-label">${L('Bill To','买方')}</div><div class="invoice-party-detail">&mdash;</div></div>`;
 
   // Contract shows both parties: Party A (seller) and Party B (buyer)
   const partyAHTML = seller ? `
     <div class="invoice-party">
       <div class="invoice-party-label">${escHtml(t('gen_contract_party_a_doc'))}</div>
       <div class="invoice-party-name">${escHtml(seller.name || '')}</div>
-      ${seller.address ? `<div class="invoice-party-detail">Address: ${escHtml(seller.address)}</div>` : ''}
-      ${seller.phone ? `<div class="invoice-party-detail">Phone: ${escHtml(seller.phone)}</div>` : ''}
-      ${seller.email ? `<div class="invoice-party-detail">Email: ${escHtml(seller.email)}</div>` : ''}
-      ${seller.legalRep ? `<div class="invoice-party-detail">${escHtml(t('gen_contract_legal_rep'))}: ${escHtml(seller.legalRep)}</div>` : ''}
+      ${seller.address ? `<div class="invoice-party-detail">${L('Address','地址')}: ${escHtml(seller.address)}</div>` : ''}
+      ${seller.phone ? `<div class="invoice-party-detail">${L('Phone','电话')}: ${escHtml(seller.phone)}</div>` : ''}
+      ${seller.email ? `<div class="invoice-party-detail">${L('Email','邮箱')}: ${escHtml(seller.email)}</div>` : ''}
+      ${seller.legalRep ? `<div class="invoice-party-detail">${L('Legal Rep.','法定代表人')}: ${escHtml(seller.legalRep)}</div>` : ''}
     </div>
   ` : `<div class="invoice-party"><div class="invoice-party-label">${escHtml(t('gen_contract_party_a_doc'))}</div><div class="invoice-party-detail">&mdash;</div></div>`;
 
@@ -2205,8 +2225,8 @@ function buildDocumentHTML(seller, buyer, products, calc) {
     <div class="invoice-party">
       <div class="invoice-party-label">${escHtml(t('gen_contract_party_b_doc'))}</div>
       <div class="invoice-party-name">${escHtml(buyer.name || '')}</div>
-      ${buyer.address ? `<div class="invoice-party-detail">Address: ${escHtml(buyer.address)}</div>` : ''}
-      ${buyer.npwp ? `<div class="invoice-party-detail">NPWP: ${escHtml(buyer.npwp)}</div>` : ''}
+      ${buyer.address ? `<div class="invoice-party-detail">${L('Address','地址')}: ${escHtml(buyer.address)}</div>` : ''}
+      ${buyer.npwp ? `<div class="invoice-party-detail">${L('NPWP','税号')}: ${escHtml(buyer.npwp)}</div>` : ''}
     </div>
   ` : `<div class="invoice-party"><div class="invoice-party-label">${escHtml(t('gen_contract_party_b_doc'))}</div><div class="invoice-party-detail">&mdash;</div></div>`;
 
@@ -2216,10 +2236,10 @@ function buildDocumentHTML(seller, buyer, products, calc) {
     <div class="invoice-party">
       <div class="invoice-party-label">${escHtml(t('gen_order_buyer_title'))}</div>
       <div class="invoice-party-name">${escHtml(buyer.name || '')}</div>
-      ${buyer.address ? `<div class="invoice-party-detail">Address: ${escHtml(buyer.address)}</div>` : ''}
-      ${buyer.email ? `<div class="invoice-party-detail">Email: ${escHtml(buyer.email)}</div>` : ''}
-      ${buyer.phone ? `<div class="invoice-party-detail">Phone: ${escHtml(buyer.phone)}</div>` : ''}
-      ${buyer.npwp ? `<div class="invoice-party-detail">NPWP: ${escHtml(buyer.npwp)}</div>` : ''}
+      ${buyer.address ? `<div class="invoice-party-detail">${L('Address','地址')}: ${escHtml(buyer.address)}</div>` : ''}
+      ${buyer.email ? `<div class="invoice-party-detail">${L('Email','邮箱')}: ${escHtml(buyer.email)}</div>` : ''}
+      ${buyer.phone ? `<div class="invoice-party-detail">${L('Phone','电话')}: ${escHtml(buyer.phone)}</div>` : ''}
+      ${buyer.npwp ? `<div class="invoice-party-detail">${L('NPWP','税号')}: ${escHtml(buyer.npwp)}</div>` : ''}
     </div>
   ` : `<div class="invoice-party"><div class="invoice-party-label">${escHtml(t('gen_order_buyer_title'))}</div><div class="invoice-party-detail">&mdash;</div></div>`;
 
@@ -2247,12 +2267,12 @@ function buildDocumentHTML(seller, buyer, products, calc) {
       <thead>
         <tr>
           <th class="center" style="width:30px">#</th>
-          <th style="width:260px">Description</th>
-          <th style="width:70px" class="col-model">Model</th>
-          <th class="center" style="width:50px">Qty</th>
-          <th class="center" style="width:50px">Unit</th>
-          <th class="right" style="width:90px">Unit Price</th>
-          <th class="right" style="width:100px">Amount</th>
+          <th style="width:165px">${L('Description','产品描述')}</th>
+          <th style="width:115px" class="col-model">${L('Model','型号')}</th>
+          <th class="center" style="width:80px">${L('Qty','数量')}</th>
+          <th class="center" style="width:88px">${L('Unit','单位')}</th>
+          <th class="right" style="width:125px">${L('Unit Price','单价')}</th>
+          <th class="right" style="width:100px">${L('Amount','金额')}</th>
         </tr>
       </thead>
       <tbody>${productRows}</tbody>
@@ -2262,30 +2282,36 @@ function buildDocumentHTML(seller, buyer, products, calc) {
   // Side panel: invoice shows Payment Information; quotation shows Notes (fixed terms + custom remarks)
   let sideHTML = '';
   if (calc.type === 'quotation') {
+    // Fixed quotation terms, bilingual (English line + Chinese line below).
+    const QUOTATION_TERMS = [
+      ['Quotation Validity: 7 days from the date of quotation.', '报价有效期：自报价之日起 7 天。'],
+      ['The quoted prices are based on the specifications and quantities stated in this quotation.', '报价以本报价单所列规格与数量为准。'],
+      ['Payment Terms: As agreed by both parties.', '付款条件：由双方协商确定。'],
+    ];
     sideHTML = `
       <div class="invoice-payment">
-        <div class="invoice-payment-title">Notes</div>
+        <div class="invoice-payment-title">${L('Notes','备注')}</div>
         <div class="invoice-payment-content">
-          <div>1、Quotation Validity: 7 days from the date of quotation.</div>
-          <div>2、The quoted prices are based on the specifications and quantities stated in this quotation.</div>
-          <div>3、Payment Terms: As agreed by both parties.</div>
+          ${QUOTATION_TERMS.map(([en, zh], i) => `
+          <div>${i + 1}、${escHtml(en)}</div>
+          <div style="color:#475569;padding-left:16px;margin-bottom:2px;">${escHtml(zh)}</div>`).join('')}
           ${calc.notes ? `<div style="margin-top:8px;white-space:pre-wrap;border-top:1px solid #e2e8f0;padding-top:8px;">${escHtml(calc.notes)}</div>` : ''}
         </div>
       </div>
     `;
   } else if (calc.payment && !isOrder && (calc.payment.bankName || calc.payment.accountNo || calc.payment.accountName || calc.payment.swiftCode || calc.payment.branchName || calc.payment.paymentNotes)) {
     const p = calc.payment;
-    const titleText = 'Payment Information';
+    const titleText = L('Payment Information','付款信息');
     sideHTML = `
       <div class="invoice-payment">
         <div class="invoice-payment-title">${titleText}</div>
         <div class="invoice-payment-content">
-          ${p.bankName ? `<div><strong>Bank:</strong> ${escHtml(p.bankName)}</div>` : ''}
-          ${p.accountNo ? `<div><strong>Account No:</strong> ${escHtml(p.accountNo)}</div>` : ''}
+          ${p.bankName ? `<div><strong>BANK:</strong> ${escHtml(p.bankName)}</div>` : ''}
           ${p.accountName ? `<div><strong>Account Name:</strong> ${escHtml(p.accountName)}</div>` : ''}
-          ${p.swiftCode ? `<div><strong>SWIFT:</strong> ${escHtml(p.swiftCode)}</div>` : ''}
+          ${p.accountNo ? `<div><strong>Account Number:</strong> ${escHtml(p.accountNo)}</div>` : ''}
           ${p.branchName ? `<div><strong>Branch Name:</strong> ${escHtml(p.branchName)}</div>` : ''}
-          ${p.paymentNotes ? `<div style="margin-top:4px;">${escHtml(p.paymentNotes)}</div>` : ''}
+          ${p.swiftCode ? `<div><strong>SWIFT:</strong> ${escHtml(p.swiftCode)}</div>` : ''}
+          ${p.paymentNotes ? `<div style="margin-top:4px;white-space:pre-wrap;word-break:break-word;">${escHtml(p.paymentNotes)}</div>` : ''}
           ${isContract && calc.notes ? `<div style="margin-top:8px;white-space:pre-wrap;border-top:1px solid #e2e8f0;padding-top:8px;">${escHtml(calc.notes)}</div>` : ''}
         </div>
       </div>
@@ -2318,18 +2344,21 @@ function buildDocumentHTML(seller, buyer, products, calc) {
         </div>
       </div>
 
-      <!-- Document Title (large) -->
-      <div style="text-align:center;font-size:26px;font-weight:800;letter-spacing:6px;color:#1e293b;padding:2px 0 10px;border-bottom:3px solid #1e293b;margin-bottom:16px;">${docTitle}</div>
+      <!-- Document Title (large) + Chinese subtitle for quotation / order -->
+      <div class="invoice-doc-title">
+        <div class="invoice-doc-title-main">${docTitle}</div>
+        ${docSubTitle ? `<div class="invoice-doc-title-sub"><span>${docSubTitle}</span></div>` : ''}
+      </div>
 
       <!-- Meta -->
       <div class="invoice-meta invoice-meta-right">
         <div class="invoice-meta-item">
-          <span class="invoice-meta-label">${isContract ? 'Contract No.:' : isOrder ? 'Order No.:' : 'No.:'}</span>
+          <span class="invoice-meta-label">${isContract ? 'Contract No.:' : isOrder ? 'Order No. / 订单号:' : isQuotation ? 'No. / 编号:' : 'No.:'}</span>
           <span class="invoice-meta-value">${escHtml(calc.invNo || '')}</span>
         </div>
         ${calc.orderRef ? `<div class="invoice-meta-item"><span class="invoice-meta-label">${escHtml(t('gen_po_contract_label'))}:</span><span class="invoice-meta-value">${escHtml(calc.orderRef)}</span></div>` : ''}
         <div class="invoice-meta-item">
-          <span class="invoice-meta-label">Date:</span>
+          <span class="invoice-meta-label">${isQuotation || isOrder ? 'Date / 日期:' : 'Date:'}</span>
           <span class="invoice-meta-value">${dateFormatted}</span>
         </div>
       </div>
@@ -2350,19 +2379,19 @@ function buildDocumentHTML(seller, buyer, products, calc) {
         <div class="invoice-totals">
           <div class="invoice-totals-box">
             <div class="invoice-total-row">
-              <span>Total</span>
+              <span>${L('Total','总计')}</span>
               <span>${fmtCurrency(calc.total, curEl)}</span>
             </div>
             <div class="invoice-total-row">
-              <span>${(calc.taxRate === 11) ? 'DPP LAINNYA 11/12' : (calc.taxRate && calc.taxRate > 0 ? `${calc.taxRate}/${calc.taxRate + 1} DPP` : 'DPP')}</span>
+              <span>${(calc.taxRate === 11) ? 'DPP LAINNYA 11/12' : (calc.taxRate && calc.taxRate > 0 ? `${calc.taxRate}/${calc.taxRate + 1} DPP` : L('DPP','税前金额'))}</span>
               <span>${fmtCurrency(calc.dpp, curEl)}</span>
             </div>
             <div class="invoice-total-row">
-              <span>${(calc.taxRate === 11) ? 'PPN 12%' : `PPN ${calc.taxRate || 0}%`}</span>
+              <span>${(calc.taxRate === 11) ? 'PPN 12%' : `${L('PPN','税额')} ${calc.taxRate || 0}%`}</span>
               <span>${fmtCurrency(calc.ppn, curEl)}</span>
             </div>
             <div class="invoice-total-row grand">
-              <span>Grand Total</span>
+              <span>${L('Grand Total','合计')}</span>
               <span>${fmtCurrency(calc.grand, curEl)}</span>
             </div>
           </div>
@@ -2381,17 +2410,15 @@ function buildDocumentHTML(seller, buyer, products, calc) {
       ${isContract ? `
       <div class="invoice-signature contract-sign">
         <div class="invoice-signature-box">
-          ${(calc.seal || calc.signature) ? `
-          <div class="invoice-seal-sign-area" style="margin:0 auto">
+          <div class="invoice-seal-sign-area">
             ${calc.seal ? `<img src="${calc.seal}" class="seal-img" alt="seal">` : ''}
             ${calc.signature ? `<img src="${calc.signature}" class="sign-img" alt="signature">` : ''}
           </div>
-          ` : '<div style="height:60px;"></div>'}
           <div class="invoice-signature-line">${escHtml((seller && seller.legalRep) || (seller && seller.name) || '')}</div>
           <div class="invoice-signature-label" style="margin-top:6px">${escHtml(t('gen_contract_party_a_doc'))}</div>
         </div>
         <div class="invoice-signature-box">
-          <div style="height:60px;"></div>
+          <div class="invoice-seal-sign-area"></div>
           <div class="invoice-signature-line">${escHtml((buyer && buyer.name) || '')}</div>
           <div class="invoice-signature-label" style="margin-top:6px">${escHtml(t('gen_contract_party_b_doc'))}</div>
         </div>
@@ -2426,6 +2453,7 @@ function buildDocumentHTML(seller, buyer, products, calc) {
           <div class="invoice-signature-line">
             ${escHtml((seller && seller.legalRep) || (seller && seller.name) || '')}
           </div>
+          <div class="invoice-signature-sub">${L('Seller','卖方')}</div>
         </div>
       </div>
       `}

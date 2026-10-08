@@ -982,6 +982,35 @@ body {
   margin-bottom: 4px;
 }
 
+/* Big document title + optional Chinese subtitle
+   (subtitle only on QUOTATION / DELIVERY NOTE / PURCHASE ORDER). */
+.invoice-doc-title {
+  text-align: center;
+  padding: 2px 0 10px;
+  border-bottom: 3px solid #1e293b;
+  margin-bottom: 16px;
+}
+
+.invoice-doc-title-main {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 6px;
+  color: #1e293b;
+}
+
+.invoice-doc-title-sub {
+  font-size: 15px;
+  font-weight: 600;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+/* Negative margin cancels the trailing letter-space so the text stays centred */
+.invoice-doc-title-sub > span {
+  letter-spacing: 4px;
+  margin-right: -4px;
+}
+
 .invoice-company-detail {
   font-size: 13px;
   color: #1e293b;
@@ -1082,6 +1111,7 @@ body {
   border-collapse: collapse;
   margin-bottom: 16px;
   font-size: 13px;
+  table-layout: fixed;
 }
 
 .invoice-table thead {
@@ -1090,10 +1120,11 @@ body {
 
 .invoice-table th {
   color: #fff;
-  padding: 6px 10px;
+  padding: 6px 8px;
   text-align: left;
   font-weight: 600;
   font-size: 13px;
+  white-space: nowrap;
 }
 
 .invoice-table th.right { text-align: right; }
@@ -1107,9 +1138,12 @@ body {
 .invoice-table td.right { text-align: right; }
 .invoice-table td.center { text-align: center; }
 
-/* Keep Model column hugging the Description column */
+/* Keep Model column hugging the Description column.
+   Header stays on one line; a long Model value wraps inside its own cell
+   (break-word + overflow-wrap) so it can never spill into the Qty column. */
 .invoice-table .col-desc { padding-right: 4px; word-break: break-word; }
-.invoice-table .col-model { padding-left: 4px; white-space: nowrap; }
+.invoice-table th.col-model { white-space: nowrap; }
+.invoice-table td.col-model { padding-left: 4px; word-break: break-word; overflow-wrap: anywhere; }
 
 .invoice-table tbody tr:nth-child(even) {
   background: #f8fafc;
@@ -1119,7 +1153,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 20px;
+  gap: 12px;
   margin-bottom: 20px;
 }
 
@@ -1181,7 +1215,9 @@ body {
   border-radius: 6px;
   background: #f8fafc;
   flex: 1;
-  max-width: 300px;
+  /* Wide enough for long values (e.g. "Account Name: PT ... INDONESIA")
+     to stay on a single line next to the totals box. */
+  max-width: 440px;
 }
 
 .invoice-payment-title {
@@ -1194,7 +1230,7 @@ body {
 }
 
 .invoice-payment-content {
-  font-size: 13px;
+  font-size: 12.5px;
   color: #1e293b;
   line-height: 1.5;
 }
@@ -1209,8 +1245,13 @@ body {
   text-align: center;
 }
 
-/* Contract: dual signature blocks (Party A left, Party B right) */
+/* Contract: dual signature blocks (Party A left, Party B right), kept on ONE row.
+   Both columns carry an identical .invoice-seal-sign-area placeholder so the two
+   signature lines stay vertically aligned whether or not a seal/signature is present. */
 .invoice-signature.contract-sign {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
   justify-content: space-between;
   align-items: flex-end;
   gap: 40px;
@@ -1218,12 +1259,34 @@ body {
 }
 
 .invoice-signature.contract-sign .invoice-signature-box {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.invoice-signature.contract-sign .invoice-seal-sign-area {
+  width: 100%;
+  max-width: 200px;
+  height: 150px;
+  margin: 0 auto;
 }
 
 .invoice-signature.contract-sign .invoice-signature-line {
   width: auto;
-  min-width: 180px;
+  min-width: 140px;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.invoice-signature.contract-sign .invoice-seal-sign-area .seal-img {
+  max-width: 120px;
+  max-height: 120px;
+}
+
+.invoice-signature.contract-sign .invoice-seal-sign-area .sign-img {
+  max-width: 170px;
+  max-height: 75px;
+  margin: 0;
 }
 
 /* Order: dual signature blocks (consignee left, supplier right) kept on one aligned row */
@@ -1268,8 +1331,12 @@ body {
   margin: 0;
 }
 
+/* Signature line: sizes itself to the printed name so long company names
+   (e.g. PT SUNLEVIGO INTERNATIONAL INDONESIA) stay on ONE line. */
 .invoice-signature-line {
-  width: 200px;
+  width: auto;
+  min-width: 200px;
+  white-space: nowrap;
   border-top: 1px solid #1e293b;
   margin-top: 8px;
   padding-top: 6px;
@@ -1593,11 +1660,15 @@ body {
   object-fit: contain;
 }
 
-/* Seal & Signature in documents */
+/* Seal & Signature in documents.
+   width:100% + max-width + auto margins keeps the stamp centred above the
+   (now auto-widening) signature line instead of hugging the left edge. */
 .invoice-seal-sign-area {
   position: relative;
-  width: 220px;
+  width: 100%;
+  max-width: 220px;
   height: 150px;
+  margin: 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;

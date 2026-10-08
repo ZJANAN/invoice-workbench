@@ -53,7 +53,7 @@ const html = sandbox.buildDocumentHTML(seller, buyer, products, {
 
 const checks = [
   ['SALES CONTRACT title', html.includes('SALES CONTRACT')],
-  ['Contract No. label', html.includes('Contract No.:')],
+  ['Contract No. label (header is English-only)', html.includes('Contract No.:')],
   ['Party A block', html.includes('Party A / 甲方 (Seller)')],
   ['Party B block', html.includes('Party B / 乙方 (Buyer)')],
   ['Party A name', html.includes('PT. Sumber Makmur')],
@@ -69,6 +69,21 @@ const checks = [
     const a = block.indexOf('Party A / 甲方 (Seller)');
     const b = block.indexOf('Party B / 乙方 (Buyer)');
     return a > -1 && b > -1 && a < b;
+  })()],
+  // 甲/乙两栏必须结构一致：各有一个等高签章占位区，否则加章后两栏会错行
+  ['[contract] both parties have one equal seal placeholder', (() => {
+    const block = html.slice(html.indexOf('invoice-signature contract-sign'));
+    return (block.match(/class="invoice-seal-sign-area"/g) || []).length === 2;
+  })()],
+  ['[contract] both parties keep equal seal placeholders when a seal is added', (() => {
+    const h = sandbox.buildDocumentHTML(seller, buyer, products, {
+      total, dpp, ppn, grand, invNo: 'CT-1', invDate: '2026-09-01', notes: '', payment: seller,
+      type: 'contract', seal: 'data:image/png;base64,SEAL', signature: 'data:image/png;base64,SIGN', taxRate,
+    });
+    const block = h.slice(h.indexOf('invoice-signature contract-sign'));
+    return (block.match(/class="invoice-seal-sign-area"/g) || []).length === 2
+      && block.includes('class="seal-img"')
+      && block.includes('class="sign-img"');
   })()],
   ['Product row 1', html.includes('Hydraulic Pump HP-200')],
   ['Product row 2', html.includes('螺杆空压机')],
@@ -151,7 +166,7 @@ checks.push(
   ['[regression] invoice Payment Information', invHtml.includes('Payment Information')],
   ['[regression] invoice no dual sign', !invHtml.includes('contract-sign')],
   ['[regression] quotation title', qtnHtml.includes('>QUOTATION<')],
-  ['[regression] quotation Notes block', qtnHtml.includes('>Notes<')],
+  ['[regression] quotation Notes block', qtnHtml.includes('>Notes / 备注<')],
   ['[regression] quotation validity clause', qtnHtml.includes('Quotation Validity: 7 days')],
 );
 
@@ -162,11 +177,11 @@ const orderHtml = sandbox.buildDocumentHTML(seller, buyer, products, {
 });
 checks.push(
   ['[order] title', orderHtml.includes('PURCHASE ORDER')],
-  ['[order] Order No. label', orderHtml.includes('Order No.:')],
-  ['[order] two-party layout (no Bill To)', !orderHtml.includes('Bill To') && orderHtml.includes('SUPPLIER/供应商') && orderHtml.includes('收货方 / Consignee')],
+  ['[order] Order No. label is bilingual', orderHtml.includes('Order No. / 订单号:')],
+  ['[order] two-party layout (no Bill To)', !orderHtml.includes('Bill To') && orderHtml.includes('SUPPLIER/供应商') && orderHtml.includes('CONSIGNEE/收货方')],
   ['[order] Payment Information removed', !orderHtml.includes('Payment Information')],
   ['[order] supply note shown', orderHtml.includes('Please supply the following items')],
-  ['[order] dual signature (consignee + supplier, not contract)', orderHtml.includes('收货方 / Consignee') && orderHtml.includes('SUPPLIER/供应商') && !orderHtml.includes('contract-sign')],
+  ['[order] dual signature (consignee + supplier, not contract)', orderHtml.includes('CONSIGNEE/收货方') && orderHtml.includes('SUPPLIER/供应商') && !orderHtml.includes('contract-sign')],
   ['[order] no contract clauses', !orderHtml.includes('合同条款')],
   ['[order] docTypeLabel', sandbox.docTypeLabel('order') === 'PURCHASE ORDER'],
   ['[order] notes rendered in preview', sandbox.buildDocumentHTML(seller, buyer, products, {
@@ -176,7 +191,7 @@ checks.push(
     const h = sandbox.buildDocumentHTML(seller, buyer, products, {
       total, dpp, ppn, grand, invNo: 'ORD-1', invDate: '2026-09-01', notes: '', payment: seller, type: 'order', seal: '', signature: '', taxRate,
     });
-    const ci = h.indexOf('收货方 / Consignee');
+    const ci = h.indexOf('CONSIGNEE/收货方');
     const tail = h.slice(ci, ci + 400);
     return tail.includes('invoice-party-name') && !tail.includes('Address:') && !tail.includes('Email:') && !tail.includes('Phone:');
   })()],
@@ -193,6 +208,87 @@ checks.push(
     const src = sandbox.updatePreviewForMode.toString();
     return src.includes("'order'") && src.includes('renderOrderPreview');
   })()],
+);
+
+// Labels: invoice body is English-only, other types are bilingual; payment field order.
+const cntHtml = sandbox.buildDocumentHTML(seller, buyer, products, {
+  total, dpp, ppn, grand, invNo: 'CTR-2026-0001', invDate: '2026-09-01', notes: '',
+  payment: seller, type: 'contract', seal: '', signature: '', taxRate,
+});
+const sellerWithNotes = Object.assign({}, seller, { paymentNotes: 'LINE1\nLINE2' });
+checks.push(
+  ['[labels] invoice body is English-only', !invHtml.includes('买方') && !invHtml.includes('产品描述') && !invHtml.includes('总计') && invHtml.includes('Description')],
+  ['[labels] contract body is bilingual', cntHtml.includes('Description / 产品描述') && cntHtml.includes('Total / 总计')],
+  ['[labels] quotation body is bilingual', qtnHtml.includes('Description / 产品描述')],
+  ['[labels] order body is bilingual', orderHtml.includes('Description / 产品描述')],
+  ['[payment] order BANK → Account Name → Account Number → Branch Name', (function(){
+    const iBank = invHtml.indexOf('<strong>BANK:</strong>');
+    const iName = invHtml.indexOf('<strong>Account Name:</strong>');
+    const iNo = invHtml.indexOf('<strong>Account Number:</strong>');
+    const iBranch = invHtml.indexOf('<strong>Branch Name:</strong>');
+    return iBank > -1 && iBank < iName && iName < iNo && iNo < iBranch;
+  })()],
+  ['[payment] payment notes keep line breaks', sandbox.buildDocumentHTML(seller, buyer, products, {
+    total, dpp, ppn, grand, invNo: 'INV-1', invDate: '2026-09-01', notes: '',
+    payment: sellerWithNotes, type: 'invoice', seal: '', signature: '', taxRate,
+  }).includes('white-space:pre-wrap')],
+);
+
+// Signature area: the printed company name must stay on ONE line (no fixed narrow width),
+// and the stamp stays centred above the line.
+const longNameSeller = Object.assign({}, seller, { name: 'PT SUNLEVIGO INTERNATIONAL INDONESIA', legalRep: '' });
+const longInvHtml = sandbox.buildDocumentHTML(longNameSeller, buyer, products, {
+  total, dpp, ppn, grand, invNo: 'INV-1', invDate: '2026-09-01', notes: '',
+  payment: seller, type: 'invoice', seal: 'data:image/png;base64,SEAL', signature: '', taxRate,
+});
+const longQtnHtml = sandbox.buildDocumentHTML(longNameSeller, buyer, products, {
+  total, dpp, ppn, grand, invNo: 'QTN-1', invDate: '2026-09-01', notes: '',
+  payment: seller, type: 'quotation', seal: '', signature: '', taxRate,
+});
+const longDlvHtml = sandbox.buildDeliveryHTML(longNameSeller, buyer, products, {
+  notes: '', shipFrom: '', shipTo: '', orderRef: '', receiverName: '', receiverPhone: '',
+  shipperName: '', shipperPhone: '', seal: 'data:image/png;base64,SEAL', signature: '',
+});
+const signLines = h => h.match(/<div class="invoice-signature-line"[^>]*>/g) || [];
+checks.push(
+  ['[signature] invoice signature line has no fixed narrow width', signLines(longInvHtml).length > 0 && signLines(longInvHtml).every(t => !/width:/.test(t)) && longInvHtml.includes('PT SUNLEVIGO INTERNATIONAL INDONESIA')],
+  ['[signature] quotation signature line has no fixed narrow width', signLines(longQtnHtml).length > 0 && signLines(longQtnHtml).every(t => !/width:/.test(t))],
+  ['[signature] delivery signature lines have no fixed narrow width', signLines(longDlvHtml).length === 2 && signLines(longDlvHtml).every(t => !/width:/.test(t))],
+  ['[signature] delivery keeps both columns structurally equal (seal placeholder each)', (longDlvHtml.match(/class="invoice-seal-sign-area"/g) || []).length === 2],
+);
+
+// Letterhead = top-left company info, English-only on EVERY document type.
+const headerOf = h => h.slice(h.indexOf('invoice-doc'), h.indexOf('invoice-doc-title'));
+// Meta = the No./Date block right under the big title.
+const metaOf = h => h.slice(h.indexOf('invoice-meta'), h.search(/invoice-parties|Ship From \/ 发货方/));
+const hasCJK = s => /[\u4e00-\u9fff]/.test(s);
+// Title block: English title + optional Chinese subtitle.
+const titleOf = h => h.slice(h.indexOf('invoice-doc-title'), h.indexOf('invoice-meta'));
+checks.push(
+  ['[header] letterhead English-only on every type', [longInvHtml, longQtnHtml, cntHtml, orderHtml, longDlvHtml].every(h => !hasCJK(headerOf(h)))],
+  ['[header] letterhead labels English-only', longQtnHtml.includes('Address: ') && longQtnHtml.includes('Email: ') && longQtnHtml.includes('Phone: ')],
+  ['[header] parties block keeps its bilingual labels', longQtnHtml.includes('Bill To / 买方') && orderHtml.includes('CONSIGNEE/收货方')],
+  ['[header] body table header still bilingual outside the header', longQtnHtml.includes('Description / 产品描述')],
+  // Meta No./Date: bilingual on quotation / delivery / order; English-only on invoice / contract.
+  ['[meta] quotation No./Date bilingual', metaOf(longQtnHtml).includes('No. / 编号:') && metaOf(longQtnHtml).includes('Date / 日期:')],
+  ['[meta] order No./Date bilingual', metaOf(orderHtml).includes('Order No. / 订单号:') && metaOf(orderHtml).includes('Date / 日期:')],
+  ['[meta] delivery No./Date bilingual', metaOf(longDlvHtml).includes('Delivery No. / 送货单号:') && metaOf(longDlvHtml).includes('Delivery Date / 送货日期:')],
+  ['[meta] invoice meta stays English-only', metaOf(longInvHtml).includes('No.:') && metaOf(longInvHtml).includes('Date:') && !hasCJK(metaOf(longInvHtml))],
+  ['[meta] contract meta stays English-only', metaOf(cntHtml).includes('Contract No.:') && !hasCJK(metaOf(cntHtml))],
+  // Delivery note fixed note is now bilingual (English line + Chinese line).
+  ['[delivery] fixed note is bilingual', longDlvHtml.includes('Please check the quantity and quality upon receipt.') && longDlvHtml.includes('请于收货时核对数量与品质。')],
+  // Title: Chinese subtitle ONLY under QUOTATION / DELIVERY NOTE / PURCHASE ORDER.
+  ['[title] QUOTATION shows 报价单 below it', titleOf(longQtnHtml).includes('QUOTATION') && titleOf(longQtnHtml).includes('报价单')],
+  ['[title] DELIVERY NOTE shows 送货单 below it', titleOf(longDlvHtml).includes('DELIVERY NOTE') && titleOf(longDlvHtml).includes('送货单')],
+  ['[title] PURCHASE ORDER shows 订单 below it', titleOf(orderHtml).includes('PURCHASE ORDER') && titleOf(orderHtml).includes('订单')],
+  ['[title] INVOICE title stays English-only', titleOf(longInvHtml).includes('INVOICE') && !hasCJK(titleOf(longInvHtml))],
+  ['[title] SALES CONTRACT title unchanged (no subtitle)', titleOf(cntHtml).includes('SALES CONTRACT') && !hasCJK(titleOf(cntHtml))],
+  // Quotation fixed remarks are bilingual too: each English clause followed by its Chinese line.
+  ['[quotation] remarks title bilingual', longQtnHtml.includes('>Notes / 备注<')],
+  ['[quotation] validity clause bilingual', longQtnHtml.includes('Quotation Validity: 7 days from the date of quotation.') && longQtnHtml.includes('报价有效期：自报价之日起 7 天。')],
+  ['[quotation] pricing clause bilingual', longQtnHtml.includes('The quoted prices are based on the specifications and quantities stated in this quotation.') && longQtnHtml.includes('报价以本报价单所列规格与数量为准。')],
+  ['[quotation] payment-terms clause bilingual', longQtnHtml.includes('Payment Terms: As agreed by both parties.') && longQtnHtml.includes('付款条件：由双方协商确定。')],
+  ['[quotation] invoice remarks stay English-only', !longInvHtml.includes('报价有效期')],
 );
 
 let ok = true;
