@@ -148,6 +148,7 @@ const I18N = {
     gen_order_select_buyer: '供应商',
     gen_order_buyer_title: 'SUPPLIER/供应商',
     gen_order_consignee_title: '收货方 / Consignee',
+    gen_order_notes_title: '备注 / Remarks',
     gen_order_no: '订单编号',
     gen_order_preview: '订单预览',
     gen_order_notes: '备注条款',
@@ -360,6 +361,7 @@ const I18N = {
     gen_order_select_buyer: 'Supplier',
     gen_order_buyer_title: 'SUPPLIER / 供应商',
     gen_order_consignee_title: 'Consignee / 收货方',
+    gen_order_notes_title: 'Remarks / 备注',
     gen_order_no: 'Order No.',
     gen_order_preview: 'Order Preview',
     gen_order_notes: 'Terms & Remarks',
@@ -2186,9 +2188,6 @@ function buildDocumentHTML(seller, buyer, products, calc) {
     <div class="invoice-party">
       <div class="invoice-party-label">${escHtml(t('gen_order_consignee_title'))}</div>
       <div class="invoice-party-name">${escHtml(seller.name || '')}</div>
-      ${seller.address ? `<div class="invoice-party-detail">Address: ${escHtml(seller.address)}</div>` : ''}
-      ${seller.email ? `<div class="invoice-party-detail">Email: ${escHtml(seller.email)}</div>` : ''}
-      ${seller.phone ? `<div class="invoice-party-detail">Phone: ${escHtml(seller.phone)}</div>` : ''}
     </div>
   ` : `<div class="invoice-party"><div class="invoice-party-label">${escHtml(t('gen_order_consignee_title'))}</div><div class="invoice-party-detail">&mdash;</div></div>`;
 
@@ -2256,6 +2255,13 @@ function buildDocumentHTML(seller, buyer, products, calc) {
     sideHTML = `
       <div class="invoice-payment">
         <div class="invoice-payment-title">${escHtml(t('gen_contract_payment_title'))}</div>
+        <div class="invoice-payment-content" style="white-space:pre-wrap">${escHtml(calc.notes)}</div>
+      </div>
+    `;
+  } else if (isOrder && calc.notes) {
+    sideHTML = `
+      <div class="invoice-payment">
+        <div class="invoice-payment-title">${escHtml(t('gen_order_notes_title'))}</div>
         <div class="invoice-payment-content" style="white-space:pre-wrap">${escHtml(calc.notes)}</div>
       </div>
     `;

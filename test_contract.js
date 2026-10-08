@@ -169,6 +169,17 @@ checks.push(
   ['[order] dual signature (consignee + supplier, not contract)', orderHtml.includes('收货方 / Consignee') && orderHtml.includes('SUPPLIER/供应商') && !orderHtml.includes('contract-sign')],
   ['[order] no contract clauses', !orderHtml.includes('合同条款')],
   ['[order] docTypeLabel', sandbox.docTypeLabel('order') === 'PURCHASE ORDER'],
+  ['[order] notes rendered in preview', sandbox.buildDocumentHTML(seller, buyer, products, {
+    total, dpp, ppn, grand, invNo: 'ORD-1', invDate: '2026-09-01', notes: '验货后付款 / pay after inspection', payment: seller, type: 'order', seal: '', signature: '', taxRate,
+  }).includes('验货后付款 / pay after inspection')],
+  ['[order] consignee shows only name (no Address/Email/Phone)', (function(){
+    const h = sandbox.buildDocumentHTML(seller, buyer, products, {
+      total, dpp, ppn, grand, invNo: 'ORD-1', invDate: '2026-09-01', notes: '', payment: seller, type: 'order', seal: '', signature: '', taxRate,
+    });
+    const ci = h.indexOf('收货方 / Consignee');
+    const tail = h.slice(ci, ci + 400);
+    return tail.includes('invoice-party-name') && !tail.includes('Address:') && !tail.includes('Email:') && !tail.includes('Phone:');
+  })()],
   ['[order] seal image rendered when provided', sandbox.buildDocumentHTML(seller, buyer, products, {
     total, dpp, ppn, grand, invNo: 'ORD-1', invDate: '2026-09-01', notes: '', payment: seller, type: 'order', seal: 'data:image/png;base64,SEAL', signature: 'data:image/png;base64,SIGN', taxRate,
   }).includes('data:image/png;base64,SEAL')],
