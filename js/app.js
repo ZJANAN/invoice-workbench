@@ -2358,7 +2358,7 @@ function buildDocumentHTML(seller, buyer, products, calc) {
         </div>
       </div>
       ` : isOrder ? `
-      <div class="invoice-signature" style="justify-content:space-between;margin-top:60px">
+      <div class="invoice-signature order-sign">
         <div class="invoice-signature-box">
           ${(calc.seal || calc.signature) ? `
           <div class="invoice-seal-sign-area">

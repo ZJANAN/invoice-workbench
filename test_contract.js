@@ -183,6 +183,12 @@ checks.push(
   ['[order] seal image rendered when provided', sandbox.buildDocumentHTML(seller, buyer, products, {
     total, dpp, ppn, grand, invNo: 'ORD-1', invDate: '2026-09-01', notes: '', payment: seller, type: 'order', seal: 'data:image/png;base64,SEAL', signature: 'data:image/png;base64,SIGN', taxRate,
   }).includes('data:image/png;base64,SEAL')],
+  ['[order] dual signature uses aligned order-sign class', (function(){
+    const h = sandbox.buildDocumentHTML(seller, buyer, products, {
+      total, dpp, ppn, grand, invNo: 'ORD-1', invDate: '2026-09-01', notes: '', payment: seller, type: 'order', seal: 'data:image/png;base64,SEAL', signature: '', taxRate,
+    });
+    return h.includes('invoice-signature order-sign') && (h.match(/invoice-signature-box/g) || []).length >= 2;
+  })()],
   ['[order] updatePreviewForMode routes order to renderOrderPreview', (function(){
     const src = sandbox.updatePreviewForMode.toString();
     return src.includes("'order'") && src.includes('renderOrderPreview');
