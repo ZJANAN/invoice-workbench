@@ -2360,17 +2360,17 @@ function buildDocumentHTML(seller, buyer, products, calc) {
       ` : isOrder ? `
       <div class="invoice-signature order-sign">
         <div class="invoice-signature-box">
-          ${(calc.seal || calc.signature) ? `
           <div class="invoice-seal-sign-area">
+            ${(calc.seal || calc.signature) ? `
             ${calc.seal ? `<img src="${calc.seal}" class="seal-img" alt="seal">` : ''}
             ${calc.signature ? `<img src="${calc.signature}" class="sign-img" alt="signature">` : ''}
+            ` : ''}
           </div>
-          ` : '<div style="height:60px;"></div>'}
           <div class="invoice-signature-line">${escHtml((seller && seller.legalRep) || (seller && seller.name) || '')}</div>
           <div class="invoice-signature-sub">${escHtml(t('gen_order_consignee_title'))}</div>
         </div>
         <div class="invoice-signature-box">
-          <div style="height:60px;"></div>
+          <div class="invoice-seal-sign-area"></div>
           <div class="invoice-signature-line">${escHtml((buyer && buyer.name) || '')}</div>
           <div class="invoice-signature-sub">${escHtml(t('gen_order_buyer_title'))}</div>
         </div>
