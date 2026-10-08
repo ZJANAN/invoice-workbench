@@ -146,7 +146,7 @@ const I18N = {
     gen_order_desc: '选择收货方、供应商和产品，自动计算价格并生成PDF格式采购订单',
     gen_order_select_seller: '收货方',
     gen_order_select_buyer: '供应商',
-    gen_order_buyer_title: '买方、供应商信息',
+    gen_order_buyer_title: 'SUPPLIER/供应商',
     gen_order_consignee_title: '收货方 / Consignee',
     gen_order_no: '订单编号',
     gen_order_preview: '订单预览',
@@ -358,7 +358,7 @@ const I18N = {
     gen_order_desc: 'Select consignee, supplier and products, auto-calculate and generate PDF purchase order.',
     gen_order_select_seller: 'Consignee',
     gen_order_select_buyer: 'Supplier',
-    gen_order_buyer_title: 'Buyer & Supplier',
+    gen_order_buyer_title: 'SUPPLIER / 供应商',
     gen_order_consignee_title: 'Consignee / 收货方',
     gen_order_no: 'Order No.',
     gen_order_preview: 'Order Preview',
@@ -2235,7 +2235,7 @@ function buildDocumentHTML(seller, buyer, products, calc) {
         </div>
       </div>
     `;
-  } else if (calc.payment && (calc.payment.bankName || calc.payment.accountNo || calc.payment.accountName || calc.payment.swiftCode || calc.payment.branchName || calc.payment.paymentNotes)) {
+  } else if (calc.payment && !isOrder && (calc.payment.bankName || calc.payment.accountNo || calc.payment.accountName || calc.payment.swiftCode || calc.payment.branchName || calc.payment.paymentNotes)) {
     const p = calc.payment;
     const titleText = 'Payment Information';
     sideHTML = `
@@ -2294,6 +2294,8 @@ function buildDocumentHTML(seller, buyer, products, calc) {
         ${isContract ? partyAHTML + partyBHTML : isOrder ? orderSupplierHTML + orderConsigneeHTML : buyerHTML}
       </div>
 
+      ${isOrder ? `<div style="margin:4px 0 12px;font-weight:600;font-size:13px;color:#1e293b;">请根据订单信息供应货物 / Please supply the following items:</div>` : ''}
+
       <!-- Products -->
       ${productsTable}
 
@@ -2347,6 +2349,24 @@ function buildDocumentHTML(seller, buyer, products, calc) {
           <div style="height:60px;"></div>
           <div class="invoice-signature-line">${escHtml((buyer && buyer.name) || '')}</div>
           <div class="invoice-signature-label" style="margin-top:6px">${escHtml(t('gen_contract_party_b_doc'))}</div>
+        </div>
+      </div>
+      ` : isOrder ? `
+      <div class="invoice-signature" style="justify-content:space-between;margin-top:60px">
+        <div class="invoice-signature-box">
+          ${(calc.seal || calc.signature) ? `
+          <div class="invoice-seal-sign-area">
+            ${calc.seal ? `<img src="${calc.seal}" class="seal-img" alt="seal">` : ''}
+            ${calc.signature ? `<img src="${calc.signature}" class="sign-img" alt="signature">` : ''}
+          </div>
+          ` : '<div style="height:60px;"></div>'}
+          <div class="invoice-signature-line">${escHtml((seller && seller.legalRep) || (seller && seller.name) || '')}</div>
+          <div class="invoice-signature-sub">${escHtml(t('gen_order_consignee_title'))}</div>
+        </div>
+        <div class="invoice-signature-box">
+          <div style="height:60px;"></div>
+          <div class="invoice-signature-line">${escHtml((buyer && buyer.name) || '')}</div>
+          <div class="invoice-signature-sub">${escHtml(t('gen_order_buyer_title'))}</div>
         </div>
       </div>
       ` : `
