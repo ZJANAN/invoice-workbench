@@ -8,7 +8,7 @@ const I18N = {
     appTitle: '报价单与发票工作台',
     appSubtitle: 'Quotation & Invoice Workbench',
     tab_seller: '卖方信息',
-    tab_buyer: '买方信息',
+    tab_buyer: '买方、供货商信息',
     tab_products: '产品明细',
     tab_payment: '收款信息',
     tab_generate_invoice: '生成发票',
@@ -226,7 +226,7 @@ const I18N = {
     appTitle: 'Quotation & Invoice Workbench',
     appSubtitle: '报价单与发票工作台',
     tab_seller: 'Seller',
-    tab_buyer: 'Buyer',
+    tab_buyer: 'Buyer / Supplier',
     tab_products: 'Products',
     tab_payment: 'Payment',
     tab_generate_invoice: 'Invoice',
@@ -1792,6 +1792,35 @@ function buildDeliveryHTML(seller, buyer, products, opts) {
 //    next page (or, if it fits, kept on the current page).
 // 3) Seal blocks (.invoice-seal-sign-area) are kept whole via DOM measurement.
 // 4) Subtle page separator (barely-visible grey border) for multi-page PDFs.
+// Prevent concurrent/stacked PDF generation (a major cause of UI jank) and give
+// clear "generating" feedback. The heavy html2canvas capture blocks the main
+// thread, so we yield a frame first so the feedback actually paints.
+let pdfGenerating = false;
+function nextFrame() {
+  return new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res)));
+}
+const PDF_BTN = {
+  invoice: 'generateInvoicePdfBtn',
+  quotation: 'generateQuotationPdfBtn',
+  contract: 'generateContractPdfBtn',
+  order: 'generateOrderPdfBtn',
+  delivery: 'generateDeliveryPdfBtn',
+};
+function setPdfBusy(mode, on) {
+  const btn = document.getElementById(PDF_BTN[mode]);
+  if (!btn) return;
+  if (on) {
+    btn._label = btn.textContent;
+    btn.disabled = true;
+    btn.classList.add('is-generating');
+    btn.textContent = (typeof lang !== 'undefined' && lang === 'en') ? 'Generating…' : '生成中…';
+  } else {
+    btn.disabled = false;
+    btn.classList.remove('is-generating');
+    if (btn._label) btn.textContent = btn._label;
+  }
+}
+
 function renderPdfPages(pdf, canvas, imgData, invoiceDoc, margin) {
   margin = margin || 5;
   const pdfWidth = 210;
@@ -1949,6 +1978,13 @@ async function generateDeliveryPDF() {
     return;
   }
 
+  if (pdfGenerating) {
+    showToast(lang === 'en' ? 'Please wait, a PDF is being generated…' : '正在生成PDF，请稍候…', 3000);
+    return;
+  }
+  pdfGenerating = true;
+  setPdfBusy('delivery', true);
+
   const sellerId = document.getElementById('deliverySellerSelect').value;
   const buyerId = document.getElementById('deliveryBuyerSelect').value;
 
@@ -1958,6 +1994,8 @@ async function generateDeliveryPDF() {
   if (selected.length === 0) { showToast(t('gen_no_products')); return; }
 
   showToast(t('gen_generating'), 8000);
+  // Let the "generating" feedback paint before the blocking html2canvas capture
+  await nextFrame();
 
   const seller = state.sellers.find(s => s.id === sellerId);
   const buyer = state.buyers.find(b => b.id === buyerId);
@@ -1980,12 +2018,11 @@ async function generateDeliveryPDF() {
   container.innerHTML = html;
   document.body.appendChild(container);
 
-  const invoiceDoc = container.querySelector('#invoiceDoc');
-  if (!invoiceDoc) {
-    document.body.removeChild(container);
-    showToast('Error: Could not build document content.', 4000);
-    return;
-  }
+    const invoiceDoc = container.querySelector('#invoiceDoc');
+    if (!invoiceDoc) {
+      showToast('Error: Could not build document content.', 4000);
+      return;
+    }
 
   try {
     const canvas = await html2canvas(invoiceDoc, {
@@ -2030,7 +2067,9 @@ async function generateDeliveryPDF() {
     console.error('Delivery PDF generation error:', err);
     showToast('PDF Error: ' + (err.message || 'Unknown error. Check console for details.'), 6000);
   } finally {
-    document.body.removeChild(container);
+    if (container && container.parentNode) document.body.removeChild(container);
+    setPdfBusy('delivery', false);
+    pdfGenerating = false;
   }
 }
 
@@ -2660,52 +2699,61 @@ async function generatePDF(mode) {
     return;
   }
 
-  // Shared by invoice / quotation / contract (identical calculation, different element ids)
-  const c = getMoneyDocConfig(mode);
-  const sellerId = document.getElementById(c.sellerSel).value;
-  const buyerId = document.getElementById(c.buyerSel).value;
-
-  if (!sellerId) { showToast(t('gen_no_seller')); switchTab('seller'); return; }
-  if (!buyerId) { showToast(t('gen_no_buyer')); return; }
-  const selected = state.products.filter(p => c.selectedSet.has(p.id));
-  if (selected.length === 0) { showToast(t('gen_no_products')); return; }
-
-  showToast(t('gen_generating'), 8000);
-
-  const seller = state.sellers.find(s => s.id === sellerId);
-  const buyer = state.buyers.find(b => b.id === buyerId);
-  const payment = seller || null;
-  const resolved = flattenProducts(selected, c.quantities);
-  const total = resolved.reduce((s, p) => s + (Number(p.quantity) || 0) * (Number(p.unitPrice) || 0), 0);
-  const taxRate = parseFloat(document.getElementById(c.taxFld).value) || 0;
-  const dpp = taxRate > 0 ? total * taxRate / (taxRate + 1) : total;
-  const ppn = total * taxRate / 100;
-  const invNo = document.getElementById(c.noFld).value;
-  const invDate = document.getElementById(c.dateFld).value;
-  const orderRefEl = document.getElementById(mode + 'OrderRef');
-  const orderRef = orderRefEl ? orderRefEl.value : '';
-  const notesEl = document.getElementById(c.notesFld);
-  const notes = notesEl ? notesEl.value : '';
-  const art5El = document.getElementById(mode + 'Art5');
-  const contractArt5 = art5El ? art5El.value : '';
-  const currencyEl = document.getElementById(c.currencySel);
-  const currency = currencyEl ? currencyEl.value : 'IDR';
-
-  const html = buildDocumentHTML(seller, buyer, resolved, { total, dpp, ppn, grand: total + ppn, invNo, invDate, orderRef, notes, payment, type: mode, seal: state.sealData[mode], signature: state.signatureData[mode], taxRate, contractArt5 });
-
-  const container = document.createElement('div');
-  container.style.cssText = 'position:fixed;left:0;top:0;width:210mm;z-index:-1;';
-  container.innerHTML = html;
-  document.body.appendChild(container);
-
-  const invoiceDoc = container.querySelector('#invoiceDoc');
-  if (!invoiceDoc) {
-    document.body.removeChild(container);
-    showToast('Error: Could not build document content.', 4000);
+  if (pdfGenerating) {
+    showToast(lang === 'en' ? 'Please wait, a PDF is being generated…' : '正在生成PDF，请稍候…', 3000);
     return;
   }
+  pdfGenerating = true;
+  setPdfBusy(mode, true);
 
+  let container = null;
   try {
+    // Shared by invoice / quotation / contract / order (identical calculation, different element ids)
+    const c = getMoneyDocConfig(mode);
+    const sellerId = document.getElementById(c.sellerSel).value;
+    const buyerId = document.getElementById(c.buyerSel).value;
+
+    if (!sellerId) { showToast(t('gen_no_seller')); switchTab('seller'); return; }
+    if (!buyerId) { showToast(t('gen_no_buyer')); return; }
+    const selected = state.products.filter(p => c.selectedSet.has(p.id));
+    if (selected.length === 0) { showToast(t('gen_no_products')); return; }
+
+    showToast(t('gen_generating'), 8000);
+    // Let the "generating" feedback paint before the blocking html2canvas capture
+    await nextFrame();
+
+    const seller = state.sellers.find(s => s.id === sellerId);
+    const buyer = state.buyers.find(b => b.id === buyerId);
+    const payment = seller || null;
+    const resolved = flattenProducts(selected, c.quantities);
+    const total = resolved.reduce((s, p) => s + (Number(p.quantity) || 0) * (Number(p.unitPrice) || 0), 0);
+    const taxRate = parseFloat(document.getElementById(c.taxFld).value) || 0;
+    const dpp = taxRate > 0 ? total * taxRate / (taxRate + 1) : total;
+    const ppn = total * taxRate / 100;
+    const invNo = document.getElementById(c.noFld).value;
+    const invDate = document.getElementById(c.dateFld).value;
+    const orderRefEl = document.getElementById(mode + 'OrderRef');
+    const orderRef = orderRefEl ? orderRefEl.value : '';
+    const notesEl = document.getElementById(c.notesFld);
+    const notes = notesEl ? notesEl.value : '';
+    const art5El = document.getElementById(mode + 'Art5');
+    const contractArt5 = art5El ? art5El.value : '';
+    const currencyEl = document.getElementById(c.currencySel);
+    const currency = currencyEl ? currencyEl.value : 'IDR';
+
+    const html = buildDocumentHTML(seller, buyer, resolved, { total, dpp, ppn, grand: total + ppn, invNo, invDate, orderRef, notes, payment, type: mode, seal: state.sealData[mode], signature: state.signatureData[mode], taxRate, contractArt5 });
+
+    container = document.createElement('div');
+    container.style.cssText = 'position:fixed;left:0;top:0;width:210mm;z-index:-1;';
+    container.innerHTML = html;
+    document.body.appendChild(container);
+
+    const invoiceDoc = container.querySelector('#invoiceDoc');
+    if (!invoiceDoc) {
+      showToast('Error: Could not build document content.', 4000);
+      return;
+    }
+
     const canvas = await html2canvas(invoiceDoc, {
       scale: 2,
       useCORS: true,
@@ -2747,7 +2795,9 @@ async function generatePDF(mode) {
     console.error('PDF generation error:', err);
     showToast('PDF Error: ' + (err.message || 'Unknown error. Check console for details.'), 6000);
   } finally {
-    document.body.removeChild(container);
+    if (container && container.parentNode) document.body.removeChild(container);
+    setPdfBusy(mode, false);
+    pdfGenerating = false;
   }
 }
 
