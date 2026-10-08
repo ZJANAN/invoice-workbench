@@ -85,6 +85,12 @@ const checks = [
       && block.includes('class="seal-img"')
       && block.includes('class="sign-img"');
   })()],
+  // Party A signature prints the COMPANY name, not the legal representative (fixture: 'Budi Santoso').
+  ['[contract] Party A signature shows company name, not legal rep', (() => {
+    const block = html.slice(html.indexOf('invoice-signature contract-sign'));
+    const line = block.slice(block.indexOf('invoice-signature-line'), block.indexOf('Party A / 甲方 (Seller)'));
+    return line.includes('PT. Sumber Makmur') && !line.includes('Budi Santoso');
+  })()],
   ['Product row 1', html.includes('Hydraulic Pump HP-200')],
   ['Product row 2', html.includes('螺杆空压机')],
   // 合同条款区
@@ -150,6 +156,12 @@ checks.push(
   ['[history] type label', sandbox.docTypeLabel('contract') === 'CONTRACT'],
 );
 
+// Everything from the signature container onwards (used to assert which party name is printed).
+const sigBlock = h => {
+  const i = h.indexOf('invoice-signature');
+  return i < 0 ? '' : h.slice(i);
+};
+
 // Regression: invoice & quotation must render exactly as before
 const invHtml = sandbox.buildDocumentHTML(seller, buyer, products, {
   total, dpp, ppn, grand, invNo: 'INV-2026-0001', invDate: '2026-09-01', orderRef: 'PO2026-001',
@@ -168,6 +180,24 @@ checks.push(
   ['[regression] quotation title', qtnHtml.includes('>QUOTATION<')],
   ['[regression] quotation Notes block', qtnHtml.includes('>Notes / 备注<')],
   ['[regression] quotation validity clause', qtnHtml.includes('Quotation Validity: 7 days')],
+  // Invoice prints the legal representative (a person signs an invoice);
+  // quotation / order print the COMPANY name. Fixture legalRep is 'Budi Santoso'.
+  ['[signature] invoice signature shows the legal rep', (() => {
+    const b = sigBlock(invHtml);
+    return b.includes('Budi Santoso') && !b.includes('PT. Sumber Makmur');
+  })()],
+  ['[signature] invoice signature falls back to company name when no legal rep', (() => {
+    const b = sigBlock(sandbox.buildDocumentHTML(
+      Object.assign({}, seller, { legalRep: '' }), buyer, products, {
+        total, dpp, ppn, grand, invNo: 'INV-1', invDate: '2026-09-01', payment: seller,
+        type: 'invoice', seal: '', signature: '', taxRate,
+      }));
+    return b.includes('PT. Sumber Makmur');
+  })()],
+  ['[signature] quotation signature shows company name, not legal rep', (() => {
+    const b = sigBlock(qtnHtml);
+    return b.includes('PT. Sumber Makmur') && !b.includes('Budi Santoso');
+  })()],
 );
 
 // Order module smoke test
@@ -203,6 +233,11 @@ checks.push(
       total, dpp, ppn, grand, invNo: 'ORD-1', invDate: '2026-09-01', notes: '', payment: seller, type: 'order', seal: 'data:image/png;base64,SEAL', signature: '', taxRate,
     });
     return h.includes('invoice-signature order-sign') && (h.match(/invoice-signature-box/g) || []).length >= 2;
+  })()],
+  // Consignee slot prints the COMPANY name; the fixture legalRep 'Budi Santoso' must not appear.
+  ['[order] consignee signature shows company name, not legal rep', (function(){
+    const b = sigBlock(orderHtml);
+    return b.includes('PT. Sumber Makmur') && !b.includes('Budi Santoso');
   })()],
   ['[order] updatePreviewForMode routes order to renderOrderPreview', (function(){
     const src = sandbox.updatePreviewForMode.toString();
