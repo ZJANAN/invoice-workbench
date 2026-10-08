@@ -1221,6 +1221,9 @@ body {
 
 /* Order: dual signature blocks (consignee left, supplier right) kept on one aligned row */
 .invoice-signature.order-sign {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
   justify-content: space-between;
   align-items: flex-end;
   gap: 40px;
@@ -1228,7 +1231,34 @@ body {
 }
 
 .invoice-signature.order-sign .invoice-signature-box {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.invoice-signature.order-sign .invoice-seal-sign-area {
+  width: 100%;
+  max-width: 200px;
+  height: 90px;
+  margin: 0 auto;
+}
+
+.invoice-signature.order-sign .invoice-signature-line {
+  width: auto;
+  min-width: 140px;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.invoice-signature.order-sign .invoice-seal-sign-area .seal-img {
+  max-width: 90px;
+  max-height: 90px;
+}
+
+.invoice-signature.order-sign .invoice-seal-sign-area .sign-img {
+  max-width: 130px;
+  max-height: 60px;
+  margin: 0;
 }
 
 .invoice-signature-line {
