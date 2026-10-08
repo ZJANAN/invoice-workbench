@@ -161,13 +161,13 @@ const orderHtml = sandbox.buildDocumentHTML(seller, buyer, products, {
   payment: seller, type: 'order', seal: '', signature: '', taxRate,
 });
 checks.push(
-  ['[order] title', orderHtml.includes('>ORDER<')],
+  ['[order] title', orderHtml.includes('PURCHASE ORDER')],
   ['[order] Order No. label', orderHtml.includes('Order No.:')],
-  ['[order] Bill To (single party)', orderHtml.includes('Bill To') && !orderHtml.includes('Party A / 甲方')],
+  ['[order] two-party layout (no Bill To)', !orderHtml.includes('Bill To') && orderHtml.includes('买方、供应商信息') && orderHtml.includes('收货方 / Consignee')],
   ['[order] Payment Information shown', orderHtml.includes('Payment Information')],
   ['[order] single signature (not dual)', !orderHtml.includes('contract-sign')],
   ['[order] no contract clauses', !orderHtml.includes('合同条款')],
-  ['[order] docTypeLabel', sandbox.docTypeLabel('order') === 'ORDER'],
+  ['[order] docTypeLabel', sandbox.docTypeLabel('order') === 'PURCHASE ORDER'],
 );
 
 let ok = true;

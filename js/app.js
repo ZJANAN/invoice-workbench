@@ -143,7 +143,11 @@ const I18N = {
     gen_contract_art5_hint: '合同下方其余六条为固定默认条款，仅第五条可在此修改。',
     // Order
     gen_order_title: '生成订单',
-    gen_order_desc: '选择卖方、买方和产品，自动计算价格并生成PDF格式订单',
+    gen_order_desc: '选择收货方、供应商和产品，自动计算价格并生成PDF格式采购订单',
+    gen_order_select_seller: '收货方',
+    gen_order_select_buyer: '供应商',
+    gen_order_buyer_title: '买方、供应商信息',
+    gen_order_consignee_title: '收货方 / Consignee',
     gen_order_no: '订单编号',
     gen_order_preview: '订单预览',
     gen_order_notes: '备注条款',
@@ -351,7 +355,11 @@ const I18N = {
     gen_contract_art5_hint: '合同下方其余六条为固定默认条款，仅第五条可在此修改。',
     // Order
     gen_order_title: 'Generate Order',
-    gen_order_desc: 'Select seller, buyer and products, auto-calculate and generate PDF order.',
+    gen_order_desc: 'Select consignee, supplier and products, auto-calculate and generate PDF purchase order.',
+    gen_order_select_seller: 'Consignee',
+    gen_order_select_buyer: 'Supplier',
+    gen_order_buyer_title: 'Buyer & Supplier',
+    gen_order_consignee_title: 'Consignee / 收货方',
     gen_order_no: 'Order No.',
     gen_order_preview: 'Order Preview',
     gen_order_notes: 'Terms & Remarks',
@@ -2109,7 +2117,7 @@ function buildDocumentHTML(seller, buyer, products, calc) {
   const isQuotation = calc.type === 'quotation';
   const isContract = calc.type === 'contract';
   const isOrder = calc.type === 'order';
-  const docTitle = isContract ? 'SALES CONTRACT' : isOrder ? 'ORDER' : (isQuotation ? 'QUOTATION' : 'INVOICE');
+  const docTitle = isContract ? 'SALES CONTRACT' : isOrder ? 'PURCHASE ORDER' : (isQuotation ? 'QUOTATION' : 'INVOICE');
   // Currency source: `calc.currencyCode` (a literal code, used when re-rendering a saved
   // document) takes priority; otherwise fall back to the live <select> for this doc type.
   const curEl = calc.currencyCode ||
@@ -2160,6 +2168,29 @@ function buildDocumentHTML(seller, buyer, products, calc) {
       ${buyer.npwp ? `<div class="invoice-party-detail">NPWP: ${escHtml(buyer.npwp)}</div>` : ''}
     </div>
   ` : `<div class="invoice-party"><div class="invoice-party-label">${escHtml(t('gen_contract_party_b_doc'))}</div><div class="invoice-party-detail">&mdash;</div></div>`;
+
+  // Order (purchase order) shows two parties like a delivery note:
+  // supplier side (the buyer-field party) on the left, consignee side (the seller-field party) on the right.
+  const orderSupplierHTML = buyer ? `
+    <div class="invoice-party">
+      <div class="invoice-party-label">${escHtml(t('gen_order_buyer_title'))}</div>
+      <div class="invoice-party-name">${escHtml(buyer.name || '')}</div>
+      ${buyer.address ? `<div class="invoice-party-detail">Address: ${escHtml(buyer.address)}</div>` : ''}
+      ${buyer.email ? `<div class="invoice-party-detail">Email: ${escHtml(buyer.email)}</div>` : ''}
+      ${buyer.phone ? `<div class="invoice-party-detail">Phone: ${escHtml(buyer.phone)}</div>` : ''}
+      ${buyer.npwp ? `<div class="invoice-party-detail">NPWP: ${escHtml(buyer.npwp)}</div>` : ''}
+    </div>
+  ` : `<div class="invoice-party"><div class="invoice-party-label">${escHtml(t('gen_order_buyer_title'))}</div><div class="invoice-party-detail">&mdash;</div></div>`;
+
+  const orderConsigneeHTML = seller ? `
+    <div class="invoice-party">
+      <div class="invoice-party-label">${escHtml(t('gen_order_consignee_title'))}</div>
+      <div class="invoice-party-name">${escHtml(seller.name || '')}</div>
+      ${seller.address ? `<div class="invoice-party-detail">Address: ${escHtml(seller.address)}</div>` : ''}
+      ${seller.email ? `<div class="invoice-party-detail">Email: ${escHtml(seller.email)}</div>` : ''}
+      ${seller.phone ? `<div class="invoice-party-detail">Phone: ${escHtml(seller.phone)}</div>` : ''}
+    </div>
+  ` : `<div class="invoice-party"><div class="invoice-party-label">${escHtml(t('gen_order_consignee_title'))}</div><div class="invoice-party-detail">&mdash;</div></div>`;
 
   const productRows = products.map((p, i) => `
     <tr>
@@ -2260,7 +2291,7 @@ function buildDocumentHTML(seller, buyer, products, calc) {
 
       <!-- Parties -->
       <div class="invoice-parties">
-        ${isContract ? partyAHTML + partyBHTML : buyerHTML}
+        ${isContract ? partyAHTML + partyBHTML : isOrder ? orderSupplierHTML + orderConsigneeHTML : buyerHTML}
       </div>
 
       <!-- Products -->
@@ -2383,8 +2414,10 @@ function renderHistoryTab() {
       ? '<span class="history-badge invoice">INVOICE</span>'
       : d.type === 'quotation'
         ? '<span class="history-badge quotation">QUOTATION</span>'
-        : d.type === 'contract'
-          ? '<span class="history-badge contract">CONTRACT</span>'
+      : d.type === 'contract'
+        ? '<span class="history-badge contract">CONTRACT</span>'
+        : d.type === 'order'
+          ? '<span class="history-badge order">PURCHASE ORDER</span>'
           : '<span class="history-badge delivery">DELIVERY</span>';
     const dateStr = d.date ? new Date(d.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
     const amountHTML = (d.type === 'delivery') ? '' : `<span class="history-item-amount">${escHtml(fmtCurrency(d.grand, d.currency || 'IDR'))}</span>`;
@@ -2509,7 +2542,7 @@ function docTypeLabel(type) {
   return type === 'invoice' ? 'INVOICE'
     : type === 'quotation' ? 'QUOTATION'
     : type === 'contract' ? 'CONTRACT'
-    : type === 'order' ? 'ORDER'
+    : type === 'order' ? 'PURCHASE ORDER'
     : type === 'delivery' ? 'DELIVERY' : 'DOCUMENT';
 }
 
