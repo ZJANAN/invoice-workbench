@@ -2890,6 +2890,7 @@ function updatePreviewForMode(mode) {
   else if (mode === 'quotation') renderQuotationPreview();
   else if (mode === 'contract') renderContractPreview();
   else if (mode === 'delivery') renderDeliveryPreview();
+  else if (mode === 'order') renderOrderPreview();
 }
 
 function init() {

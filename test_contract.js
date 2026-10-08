@@ -169,6 +169,13 @@ checks.push(
   ['[order] dual signature (consignee + supplier, not contract)', orderHtml.includes('收货方 / Consignee') && orderHtml.includes('SUPPLIER/供应商') && !orderHtml.includes('contract-sign')],
   ['[order] no contract clauses', !orderHtml.includes('合同条款')],
   ['[order] docTypeLabel', sandbox.docTypeLabel('order') === 'PURCHASE ORDER'],
+  ['[order] seal image rendered when provided', sandbox.buildDocumentHTML(seller, buyer, products, {
+    total, dpp, ppn, grand, invNo: 'ORD-1', invDate: '2026-09-01', notes: '', payment: seller, type: 'order', seal: 'data:image/png;base64,SEAL', signature: 'data:image/png;base64,SIGN', taxRate,
+  }).includes('data:image/png;base64,SEAL')],
+  ['[order] updatePreviewForMode routes order to renderOrderPreview', (function(){
+    const src = sandbox.updatePreviewForMode.toString();
+    return src.includes("'order'") && src.includes('renderOrderPreview');
+  })()],
 );
 
 let ok = true;
