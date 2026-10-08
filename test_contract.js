@@ -155,6 +155,21 @@ checks.push(
   ['[regression] quotation validity clause', qtnHtml.includes('Quotation Validity: 7 days')],
 );
 
+// Order module smoke test
+const orderHtml = sandbox.buildDocumentHTML(seller, buyer, products, {
+  total, dpp, ppn, grand, invNo: 'ORD-2026-0001', invDate: '2026-09-01', notes: 'Order remark',
+  payment: seller, type: 'order', seal: '', signature: '', taxRate,
+});
+checks.push(
+  ['[order] title', orderHtml.includes('>ORDER<')],
+  ['[order] Order No. label', orderHtml.includes('Order No.:')],
+  ['[order] Bill To (single party)', orderHtml.includes('Bill To') && !orderHtml.includes('Party A / 甲方')],
+  ['[order] Payment Information shown', orderHtml.includes('Payment Information')],
+  ['[order] single signature (not dual)', !orderHtml.includes('contract-sign')],
+  ['[order] no contract clauses', !orderHtml.includes('合同条款')],
+  ['[order] docTypeLabel', sandbox.docTypeLabel('order') === 'ORDER'],
+);
+
 let ok = true;
 for (const [name, pass] of checks) {
   if (!pass) ok = false;

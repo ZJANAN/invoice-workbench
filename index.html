@@ -61,6 +61,10 @@
       <span class="tab-icon">📝</span>
       <span data-i18n="tab_generate_contract">生成合同</span>
     </button>
+    <button class="tab-btn" data-tab="generate-order">
+      <span class="tab-icon">🧾</span>
+      <span data-i18n="tab_generate_order">生成订单</span>
+    </button>
     <button class="tab-btn" data-tab="history">
       <span class="tab-icon">📚</span>
       <span data-i18n="tab_history">历史文档</span>
@@ -594,12 +598,123 @@
     </div>
   </section>
 
+  <!-- ====== Generate Order Tab ====== -->
+  <section id="tab-generate-order" class="tab-panel">
+    <div class="section-header">
+      <h2 data-i18n="gen_order_title">生成订单</h2>
+      <p class="section-desc" data-i18n="gen_order_desc">选择卖方、买方和产品，自动计算价格并生成PDF格式订单</p>
+    </div>
+    <div class="generate-layout">
+      <div class="generate-config">
+        <div class="card">
+          <h3 class="card-title" data-i18n="gen_doc_info">单据信息</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label" data-i18n="gen_select_seller">选择卖方</label>
+              <select id="orderSellerSelect" class="form-input"></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="gen_select_buyer">选择买方</label>
+              <select id="orderBuyerSelect" class="form-input"></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="gen_order_no">订单编号</label>
+              <input type="text" id="orderNo" class="form-input">
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="gen_date">日期</label>
+              <input type="date" id="orderDate" class="form-input">
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="gen_currency">货币</label>
+              <select id="orderCurrencySelect" class="form-input">
+                <option value="IDR">IDR (Rp)</option>
+                <option value="USD">USD ($)</option>
+                <option value="CNY">CNY (¥)</option>
+                <option value="EUR">EUR (€)</option>
+                <option value="SGD">SGD (S$)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="gen_tax_rate">税率 (%)</label>
+              <input type="number" id="orderTaxRate" class="form-input" value="11" min="0" max="100" step="0.5">
+            </div>
+            <div class="form-group" style="grid-column: 1 / -1">
+              <label class="form-label" data-i18n="gen_order_notes">备注条款</label>
+              <textarea id="orderNotes" class="form-textarea" rows="3" data-i18n-ph="gen_order_notes_ph" placeholder="可在此随意增加备注条款..."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="card-title" data-i18n="gen_select_products">选择产品</h3>
+          <div id="orderProductSelectList" class="product-select-list"></div>
+          <div id="orderProductSelectEmpty" class="empty-state small" style="display:none">
+            <p data-i18n="product_empty">暂无产品信息</p>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="card-title" data-i18n="gen_seal_sign">公章与签名</h3>
+          <div class="seal-sign-grid">
+            <div class="seal-sign-item">
+              <label class="form-label" data-i18n="gen_seal">公司公章</label>
+              <div class="seal-upload-area" id="orderSealUpload" onclick="document.getElementById('orderSealInput').click()">
+                <img id="orderSealPreview" class="seal-preview-img" style="display:none">
+                <span id="orderSealPlaceholder" class="seal-placeholder" data-i18n="gen_seal_hint">点击上传公章图片</span>
+              </div>
+              <input type="file" id="orderSealInput" accept="image/*" style="display:none" onchange="handleSealUpload(this, 'order')">
+              <button class="btn btn-sm btn-outline" style="margin-top:4px;width:100%" onclick="clearSeal('order')" data-i18n="gen_clear_seal">清除公章</button>
+            </div>
+            <div class="seal-sign-item">
+              <label class="form-label" data-i18n="gen_signature">签名</label>
+              <div class="seal-upload-area" id="orderSignUpload" onclick="document.getElementById('orderSignInput').click()">
+                <img id="orderSignPreview" class="seal-preview-img" style="display:none">
+                <span id="orderSignPlaceholder" class="seal-placeholder" data-i18n="gen_sign_hint">点击上传签名图片</span>
+              </div>
+              <input type="file" id="orderSignInput" accept="image/*" style="display:none" onchange="handleSignUpload(this, 'order')">
+              <button class="btn btn-sm btn-outline" style="margin-top:4px;width:100%" onclick="clearSign('order')" data-i18n="gen_clear_sign">清除签名</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="card-title" data-i18n="gen_summary">价格汇总</h3>
+          <div class="summary-list">
+            <div class="summary-row">
+              <span>Total</span>
+              <span id="orderSummaryTotal">0.00</span>
+            </div>
+            <div class="summary-row">
+              <span id="orderDppLabel">DPP LAINNYA 11/12</span>
+              <span id="orderSummaryDpp">0.00</span>
+            </div>
+            <div class="summary-row">
+              <span id="orderPpnLabel">PPN 12%</span>
+              <span id="orderSummaryPpn">0.00</span>
+            </div>
+            <div class="summary-row total">
+              <span>Grand Total</span>
+              <span id="orderSummaryGrand">0.00</span>
+            </div>
+          </div>
+          <button id="generateOrderPdfBtn" class="btn btn-primary btn-block" data-i18n="gen_generate_pdf">生成 PDF</button>
+        </div>
+      </div>
+      <div class="generate-preview">
+        <div class="card preview-card">
+          <div class="preview-header">
+            <h3 class="card-title" data-i18n="gen_order_preview">订单预览</h3>
+          </div>
+          <div id="orderPreview" class="invoice-preview"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ====== History Tab ====== -->
   <section id="tab-history" class="tab-panel">
     <div class="section-header">
       <div>
         <h2 data-i18n="history_title">历史文档</h2>
-        <p class="section-desc" data-i18n="history_desc">查看、搜索和下载已生成的所有发票和报价单</p>
+        <p class="section-desc" data-i18n="history_desc">查看、搜索和下载已生成的所有单据</p>
       </div>
       <button id="historyClearBtn" class="btn btn-outline btn-sm" data-i18n="history_clear">清空全部</button>
     </div>
@@ -611,6 +726,7 @@
         <button class="filter-btn" data-filter="quotation" data-i18n="history_filter_quotation">报价单</button>
         <button class="filter-btn" data-filter="delivery" data-i18n="history_filter_delivery">送货单</button>
         <button class="filter-btn" data-filter="contract" data-i18n="history_filter_contract">合同</button>
+        <button class="filter-btn" data-filter="order" data-i18n="history_filter_order">订单</button>
       </div>
       <!-- Date range + search + export -->
       <div class="history-search-bar">

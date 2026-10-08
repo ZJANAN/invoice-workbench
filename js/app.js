@@ -15,6 +15,7 @@ const I18N = {
     tab_generate_quotation: '生成报价单',
     tab_generate_delivery: '生成送货单',
     tab_generate_contract: '生成合同',
+    tab_generate_order: '生成订单',
     // Seller
     seller_title: '卖方信息',
     seller_desc: '管理多个卖方（供应商）信息��保存后可用于生成报价单和发票',
@@ -140,6 +141,13 @@ const I18N = {
     gen_contract_art5: '第五条 付款方式（可编辑）',
     gen_contract_art5_ph: '结算方式：送至现场前付款至100%\nsettlement method: with the payment 100% before delivery to the site.',
     gen_contract_art5_hint: '合同下方其余六条为固定默认条款，仅第五条可在此修改。',
+    // Order
+    gen_order_title: '生成订单',
+    gen_order_desc: '选择卖方、买方和产品，自动计算价格并生成PDF格式订单',
+    gen_order_no: '订单编号',
+    gen_order_preview: '订单预览',
+    gen_order_notes: '备注条款',
+    gen_order_notes_ph: '可在此随意增加备注条款...',
     // Delivery Note
     gen_delivery_title: '生成送货单',
     gen_delivery_desc: '选择发货方、收货方和产品，生成PDF格式送货单',
@@ -183,6 +191,7 @@ const I18N = {
     history_filter_quotation: '报价单',
     history_filter_delivery: '送货单',
     history_filter_contract: '合同',
+    history_filter_order: '订单',
     history_filter_summary: '汇总单',
     history_view: '在线预览',
     history_download: '下载PDF',
@@ -219,6 +228,7 @@ const I18N = {
     tab_generate_quotation: 'Quotation',
     tab_generate_delivery: 'Delivery',
     tab_generate_contract: 'Contract',
+    tab_generate_order: 'Order',
     seller_title: 'Seller Information',
     seller_desc: 'Manage multiple seller (supplier) profiles for quotations and invoices.',
     seller_add: '+ Add Seller',
@@ -339,6 +349,13 @@ const I18N = {
     gen_contract_art5: '第五条 付款方式（可编辑）',
     gen_contract_art5_ph: '结算方式：送至现场前付款至100%\nsettlement method: with the payment 100% before delivery to the site.',
     gen_contract_art5_hint: '合同下方其余六条为固定默认条款，仅第五条可在此修改。',
+    // Order
+    gen_order_title: 'Generate Order',
+    gen_order_desc: 'Select seller, buyer and products, auto-calculate and generate PDF order.',
+    gen_order_no: 'Order No.',
+    gen_order_preview: 'Order Preview',
+    gen_order_notes: 'Terms & Remarks',
+    gen_order_notes_ph: 'Add your own clauses here...',
     // Delivery Note
     gen_delivery_title: 'Generate Delivery Note',
     gen_delivery_desc: 'Select shipper, receiver and products to generate PDF delivery note.',
@@ -381,6 +398,7 @@ const I18N = {
     history_filter_quotation: 'Quotation',
     history_filter_delivery: 'Delivery',
     history_filter_contract: 'Contract',
+    history_filter_order: 'Order',
     history_filter_summary: 'Summary',
     history_view: 'View Online',
     history_download: 'Download PDF',
@@ -418,10 +436,12 @@ const state = {
   quotationSelectedProducts: new Set(),
   deliverySelectedProducts: new Set(),
   contractSelectedProducts: new Set(),
+  orderSelectedProducts: new Set(),
   invoiceQuantities: {},  // productId -> qty override
   quotationQuantities: {}, // productId -> qty override
   deliveryQuantities: {},  // productId -> qty override for delivery
   contractQuantities: {},  // productId -> qty override for contract
+  orderQuantities: {},     // productId -> qty override for order
   sealData: {},          // mode -> base64 (invoice/quotation/delivery)
   signatureData: {},     // mode -> base64 (invoice/quotation/delivery)
   modalLogoData: '', // temp logo for seller modal
@@ -438,6 +458,7 @@ const SK = {
   quotCounter: 'pi_quot_counter',
   dnCounter: 'pi_dn_counter',
   ctrCounter: 'pi_ctr_counter',
+  orderCounter: 'pi_order_counter',
 };
 
 // ============ Storage ============
@@ -584,6 +605,7 @@ function switchTab(tabName) {
   if (tabName === 'generate-quotation') renderGenerateQuotationTab();
   if (tabName === 'generate-delivery') renderGenerateDeliveryTab();
   if (tabName === 'generate-contract') renderGenerateContractTab();
+  if (tabName === 'generate-order') renderGenerateOrderTab();
   if (tabName === 'history') renderHistoryTab();
 }
 
@@ -1232,6 +1254,13 @@ function getModeConfig(mode) {
     emptyId: 'contractProductSelectEmpty',
     onUpdate: () => { updateContractSummary(); renderContractPreview(); }
   };
+  if (mode === 'order') return {
+    selectedProducts: state.orderSelectedProducts,
+    quantities: state.orderQuantities,
+    containerId: 'orderProductSelectList',
+    emptyId: 'orderProductSelectEmpty',
+    onUpdate: () => { updateOrderSummary(); renderOrderPreview(); }
+  };
   // quotation
   return {
     selectedProducts: state.quotationSelectedProducts,
@@ -1369,9 +1398,9 @@ function getMoneyDocConfig(mode) {
     ppnId: mode + 'SummaryPpn',
     grandId: mode + 'SummaryGrand',
     descKey: 'gen_' + mode + '_desc',
-    prefix: mode === 'invoice' ? 'Invoice' : mode === 'quotation' ? 'Quotation' : 'Contract',
-    docPrefix: mode === 'invoice' ? 'INV' : mode === 'quotation' ? 'QTN' : 'CTR',
-    counterKey: mode === 'invoice' ? SK.invCounter : mode === 'quotation' ? SK.quotCounter : SK.ctrCounter,
+    prefix: mode === 'invoice' ? 'Invoice' : mode === 'quotation' ? 'Quotation' : mode === 'contract' ? 'Contract' : 'Order',
+    docPrefix: mode === 'invoice' ? 'INV' : mode === 'quotation' ? 'QTN' : mode === 'contract' ? 'CTR' : 'ORD',
+    counterKey: mode === 'invoice' ? SK.invCounter : mode === 'quotation' ? SK.quotCounter : mode === 'contract' ? SK.ctrCounter : SK.orderCounter,
   };
 }
 
@@ -1504,6 +1533,46 @@ function renderContractPreview() {
     return;
   }
   preview.innerHTML = buildDocumentHTML(seller, buyer, resolved, { total, dpp, ppn, grand, invNo: contractNo, invDate: contractDate, notes, payment, type: 'contract', seal: state.sealData['contract'], signature: state.signatureData['contract'], taxRate, contractArt5 });
+}
+
+// ============ Generate Order Tab ============
+function renderGenerateOrderTab() {
+  const c = getMoneyDocConfig('order');
+  const noField = document.getElementById(c.noFld);
+  if (!noField.value) noField.value = genDocNo(c.docPrefix, c.counterKey);
+  const dateField = document.getElementById(c.dateFld);
+  if (!dateField.value) dateField.value = new Date().toISOString().slice(0, 10);
+
+  populateSelect(c.sellerSel, state.sellers, 'gen_no_seller_data');
+  populateSelect(c.buyerSel, state.buyers, 'gen_no_buyer_data');
+
+  renderProductSelectList(c.containerId, c.emptyId, state.orderSelectedProducts, 'order');
+  restoreSealSignPreview('order');
+  renderOrderPreview();
+}
+
+function updateOrderSummary() { updateMoneySummary('order'); }
+
+function renderOrderPreview() {
+  const c = getMoneyDocConfig('order');
+  updateOrderSummary();
+  const preview = document.getElementById(c.previewId);
+  const sellerId = document.getElementById(c.sellerSel).value;
+  const buyerId = document.getElementById(c.buyerSel).value;
+  const seller = state.sellers.find(s => s.id === sellerId);
+  const buyer = state.buyers.find(b => b.id === buyerId);
+  const { resolved, total, taxRate, dpp, ppn, grand } = computeMoneyDoc('order');
+  const orderNo = document.getElementById(c.noFld).value;
+  const orderDate = document.getElementById(c.dateFld).value;
+  const payment = seller || null;
+  const notesEl = document.getElementById(c.notesFld);
+  const notes = notesEl ? notesEl.value : '';
+
+  if (!seller && !buyer && c.selectedSet.size === 0) {
+    preview.innerHTML = `<div class="invoice-empty-preview">${t(c.descKey)}</div>`;
+    return;
+  }
+  preview.innerHTML = buildDocumentHTML(seller, buyer, resolved, { total, dpp, ppn, grand, invNo: orderNo, invDate: orderDate, notes, payment, type: 'order', seal: state.sealData['order'], signature: state.signatureData['order'], taxRate });
 }
 
 // ============ Generate Delivery Note Tab ============
@@ -2039,12 +2108,14 @@ function buildContractClausesHTML(art5Text) {
 function buildDocumentHTML(seller, buyer, products, calc) {
   const isQuotation = calc.type === 'quotation';
   const isContract = calc.type === 'contract';
-  const docTitle = isContract ? 'SALES CONTRACT' : (isQuotation ? 'QUOTATION' : 'INVOICE');
+  const isOrder = calc.type === 'order';
+  const docTitle = isContract ? 'SALES CONTRACT' : isOrder ? 'ORDER' : (isQuotation ? 'QUOTATION' : 'INVOICE');
   // Currency source: `calc.currencyCode` (a literal code, used when re-rendering a saved
   // document) takes priority; otherwise fall back to the live <select> for this doc type.
   const curEl = calc.currencyCode ||
     (calc.type === 'invoice' ? 'invoiceCurrencySelect'
       : calc.type === 'quotation' ? 'quotationCurrencySelect'
+      : calc.type === 'order' ? 'orderCurrencySelect'
       : 'contractCurrencySelect');
 
   const logoHTML = (seller && seller.logo)
@@ -2177,7 +2248,7 @@ function buildDocumentHTML(seller, buyer, products, calc) {
       <!-- Meta -->
       <div class="invoice-meta invoice-meta-right">
         <div class="invoice-meta-item">
-          <span class="invoice-meta-label">${isContract ? 'Contract No.:' : 'No.:'}</span>
+          <span class="invoice-meta-label">${isContract ? 'Contract No.:' : isOrder ? 'Order No.:' : 'No.:'}</span>
           <span class="invoice-meta-value">${escHtml(calc.invNo || '')}</span>
         </div>
         ${calc.orderRef ? `<div class="invoice-meta-item"><span class="invoice-meta-label">${escHtml(t('gen_po_contract_label'))}:</span><span class="invoice-meta-value">${escHtml(calc.orderRef)}</span></div>` : ''}
@@ -2438,6 +2509,7 @@ function docTypeLabel(type) {
   return type === 'invoice' ? 'INVOICE'
     : type === 'quotation' ? 'QUOTATION'
     : type === 'contract' ? 'CONTRACT'
+    : type === 'order' ? 'ORDER'
     : type === 'delivery' ? 'DELIVERY' : 'DOCUMENT';
 }
 
@@ -2501,7 +2573,7 @@ async function downloadHistoryDocument(docId) {
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF('p', 'mm', 'a4');
     renderPdfPages(pdf, canvas, imgData, invoiceDoc, 5);
-    const prefix = doc.type === 'invoice' ? 'Invoice' : doc.type === 'quotation' ? 'Quotation' : doc.type === 'contract' ? 'Contract' : doc.type === 'delivery' ? 'Delivery' : 'Summary';
+    const prefix = doc.type === 'invoice' ? 'Invoice' : doc.type === 'quotation' ? 'Quotation' : doc.type === 'contract' ? 'Contract' : doc.type === 'order' ? 'Order' : doc.type === 'delivery' ? 'Delivery' : 'Summary';
     pdf.save(`${prefix}_${doc.docNo || docId}.pdf`.replace(/[\\/:*?"<>|]/g, '_'));
   } catch (err) {
     showToast('PDF Error: ' + (err.message || 'Unknown'), 6000);
@@ -2623,6 +2695,7 @@ async function generatePDF(mode) {
 function generateInvoicePDF() { generatePDF('invoice'); }
 function generateQuotationPDF() { generatePDF('quotation'); }
 function generateContractPDF() { generatePDF('contract'); }
+function generateOrderPDF() { generatePDF('order'); }
 
 // ============ Data Export/Import ============
 function exportData() {
@@ -2702,6 +2775,7 @@ function renderAll() {
   if (active === 'generate-quotation') renderGenerateQuotationTab();
   if (active === 'generate-delivery') renderGenerateDeliveryTab();
   if (active === 'generate-contract') renderGenerateContractTab();
+  if (active === 'generate-order') renderGenerateOrderTab();
   if (active === 'history') renderHistoryTab();
 }
 
@@ -2834,6 +2908,16 @@ function init() {
   document.getElementById('contractNotes').addEventListener('input', renderContractPreview);
   document.getElementById('contractArt5').addEventListener('input', renderContractPreview);
   document.getElementById('generateContractPdfBtn').addEventListener('click', generateContractPDF);
+
+  // Generate Order
+  document.getElementById('orderSellerSelect').addEventListener('change', renderOrderPreview);
+  document.getElementById('orderBuyerSelect').addEventListener('change', renderOrderPreview);
+  document.getElementById('orderCurrencySelect').addEventListener('change', () => { updateOrderSummary(); renderOrderPreview(); });
+  document.getElementById('orderTaxRate').addEventListener('input', () => { updateOrderSummary(); renderOrderPreview(); });
+  document.getElementById('orderNo').addEventListener('input', renderOrderPreview);
+  document.getElementById('orderDate').addEventListener('change', renderOrderPreview);
+  document.getElementById('orderNotes').addEventListener('input', renderOrderPreview);
+  document.getElementById('generateOrderPdfBtn').addEventListener('click', generateOrderPDF);
 
   // Generate Delivery Note
   document.getElementById('deliverySellerSelect').addEventListener('change', (e) => {
