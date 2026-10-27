@@ -565,6 +565,12 @@ function fmtNum(n, currencyElId) {
   return num.toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
+// Two-decimal variant, used only for the Unit Price column in invoice preview.
+function fmtNum2(n) {
+  const num = Number(n) || 0;
+  return num.toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function fmtCurrency(amount, currencyElOrStr) {
   let currency;
   if (typeof currencyElOrStr === 'string' && currencyElOrStr && currencyElOrStr.length <= 5) {
@@ -2257,7 +2263,7 @@ function buildDocumentHTML(seller, buyer, products, calc) {
       <td class="col-model">${escHtml(p.model || '-')}</td>
       <td class="center">${p.quantity}</td>
       <td class="center">${escHtml(p.unit || '-')}</td>
-      <td class="right">${fmtNum(p.unitPrice)}</td>
+      <td class="right">${isInvoice ? fmtNum2(p.unitPrice) : fmtNum(p.unitPrice)}</td>
       <td class="right">${fmtNum((p.quantity || 0) * (p.unitPrice || 0))}</td>
     </tr>
   `).join('');
