@@ -111,6 +111,11 @@ const I18N = {
     gen_select_payment: '收款账户',
     gen_currency: '货币',
     gen_tax_rate: '税率 (%)',
+    gen_invoice_pay_type: '发票类型',
+    gen_invoice_pay_full: '全款单 / Full Payment',
+    gen_invoice_pay_down: '预付款单 / Down Payment',
+    gen_invoice_pay_stage: '付款阶段',
+    gen_invoice_pay_pct: '百分比 (%)',
     gen_select_products: '选择产品',
     gen_summary: '价格汇总',
     gen_quotation_notes: '备注条款',
@@ -324,6 +329,11 @@ const I18N = {
     gen_select_payment: 'Payment Account',
     gen_currency: 'Currency',
     gen_tax_rate: 'Tax Rate (%)',
+    gen_invoice_pay_type: 'Invoice Type',
+    gen_invoice_pay_full: '全款单 / Full Payment',
+    gen_invoice_pay_down: '预付款单 / Down Payment',
+    gen_invoice_pay_stage: 'Payment Stage',
+    gen_invoice_pay_pct: 'Percentage (%)',
     gen_select_products: 'Select Products',
     gen_summary: 'Price Summary',
     gen_quotation_notes: 'Notes / Remarks',
@@ -1229,6 +1239,7 @@ function renderGenerateInvoiceTab() {
 
   renderProductSelectList('invoiceProductSelectList', 'invoiceProductSelectEmpty', state.invoiceSelectedProducts, 'invoice');
   restoreSealSignPreview('invoice');
+  updateInvoicePayVisibility();
   renderInvoicePreview();
 }
 
@@ -1420,23 +1431,62 @@ function getMoneyDocConfig(mode) {
   };
 }
 
+// Down-payment invoice options read from the invoice tab (type: full / down, stage: downpayment / finalpayment, pct).
+function getInvoicePayOptions() {
+  const typeEl = document.getElementById('invoicePayType');
+  const kindEl = document.getElementById('invoicePayKind');
+  const pctEl = document.getElementById('invoicePayPct');
+  return {
+    type: typeEl ? typeEl.value : 'full',
+    kind: kindEl ? kindEl.value : 'downpayment',
+    pct: pctEl ? (parseFloat(pctEl.value) || 0) : 0,
+  };
+}
+
+// Show/hide the Downpayment stage & percentage fields depending on invoice type.
+function updateInvoicePayVisibility() {
+  const typeEl = document.getElementById('invoicePayType');
+  const kindGroup = document.getElementById('invoicePayKindGroup');
+  const pctGroup = document.getElementById('invoicePayPctGroup');
+  if (!typeEl || !kindGroup || !pctGroup) return;
+  const isDown = typeEl.value === 'down';
+  kindGroup.style.display = isDown ? '' : 'none';
+  pctGroup.style.display = isDown ? '' : 'none';
+}
+
 function computeMoneyDoc(mode) {
   const c = getMoneyDocConfig(mode);
   const selected = state.products.filter(p => c.selectedSet.has(p.id));
   const resolved = flattenProducts(selected, c.quantities);
   const total = resolved.reduce((s, p) => s + (Number(p.quantity) || 0) * (Number(p.unitPrice) || 0), 0);
   const taxRate = parseFloat(document.getElementById(c.taxFld).value) || 0;
-  const dpp = taxRate > 0 ? total * taxRate / (taxRate + 1) : total;
-  const ppn = total * taxRate / 100;
-  return { selected, resolved, total, taxRate, dpp, ppn, grand: total + ppn };
+  // Down-payment invoice: base = Total × percentage; DPP/PPN/Grand are computed from base.
+  const pay = mode === 'invoice' ? getInvoicePayOptions() : null;
+  const isPaySplit = !!(pay && pay.type === 'down' && pay.pct > 0);
+  const base = isPaySplit ? total * pay.pct / 100 : total;
+  const dpp = taxRate > 0 ? base * taxRate / (taxRate + 1) : base;
+  // For taxRate 11 (DPP LAINNYA 11/12) PPN 12% = DPP × 0.12; other rates keep the classic formula.
+  const ppn = taxRate === 11 ? dpp * 0.12 : base * taxRate / 100;
+  return { selected, resolved, total, taxRate, base, pay: isPaySplit ? pay : null, dpp, ppn, grand: base + ppn };
 }
 
 function updateMoneySummary(mode) {
   const c = getMoneyDocConfig(mode);
-  const { total, taxRate, dpp, ppn, grand } = computeMoneyDoc(mode);
+  const { total, taxRate, base, pay, dpp, ppn, grand } = computeMoneyDoc(mode);
   document.getElementById(c.dppLabelId).textContent = taxRate === 11 ? 'DPP LAINNYA 11/12' : (taxRate > 0 ? `${taxRate}/${taxRate + 1} DPP` : 'DPP');
   document.getElementById(c.ppnLabelId).textContent = taxRate === 11 ? 'PPN 12%' : `PPN ${taxRate}%`;
   document.getElementById(c.totalId).textContent = fmtCurrency(total, c.currencySel);
+  // Down-payment invoice: show "Downpayment/Finalpayment X%" row right below Total.
+  const payRow = document.getElementById('invoiceSummaryPayRow');
+  if (mode === 'invoice' && payRow) {
+    if (pay) {
+      document.getElementById('invoiceSummaryPayLabel').textContent = `${pay.kind === 'finalpayment' ? 'Finalpayment' : 'Downpayment'} ${pay.pct}%`;
+      document.getElementById('invoiceSummaryPayValue').textContent = fmtCurrency(base, c.currencySel);
+      payRow.style.display = '';
+    } else {
+      payRow.style.display = 'none';
+    }
+  }
   document.getElementById(c.dppId).textContent = fmtCurrency(dpp, c.currencySel);
   document.getElementById(c.ppnId).textContent = fmtCurrency(ppn, c.currencySel);
   document.getElementById(c.grandId).textContent = fmtCurrency(grand, c.currencySel);
@@ -1452,7 +1502,7 @@ function renderInvoicePreview() {
   const buyerId = document.getElementById(c.buyerSel).value;
   const seller = state.sellers.find(s => s.id === sellerId);
   const buyer = state.buyers.find(b => b.id === buyerId);
-  const { resolved, total, taxRate, dpp, ppn, grand } = computeMoneyDoc('invoice');
+  const { resolved, total, taxRate, base, pay, dpp, ppn, grand } = computeMoneyDoc('invoice');
   const invNo = document.getElementById(c.noFld).value;
   const invDate = document.getElementById(c.dateFld).value;
   const orderRefEl = document.getElementById('invoiceOrderRef');
@@ -1463,7 +1513,7 @@ function renderInvoicePreview() {
     preview.innerHTML = `<div class="invoice-empty-preview">${t(c.descKey)}</div>`;
     return;
   }
-  preview.innerHTML = buildDocumentHTML(seller, buyer, resolved, { total, dpp, ppn, grand, invNo, invDate, orderRef, payment, type: 'invoice', seal: state.sealData['invoice'], signature: state.signatureData['invoice'], taxRate });
+  preview.innerHTML = buildDocumentHTML(seller, buyer, resolved, { total, base, pay, dpp, ppn, grand, invNo, invDate, orderRef, payment, type: 'invoice', seal: state.sealData['invoice'], signature: state.signatureData['invoice'], taxRate });
 }
 
 // ============ Generate Quotation Tab ============
@@ -2388,6 +2438,11 @@ function buildDocumentHTML(seller, buyer, products, calc) {
               <span>${L('Total','总计')}</span>
               <span>${fmtCurrency(calc.total, curEl)}</span>
             </div>
+            ${(calc.pay && calc.base != null) ? `
+            <div class="invoice-total-row">
+              <span>${calc.pay.kind === 'finalpayment' ? 'Finalpayment' : 'Downpayment'} ${calc.pay.pct}%</span>
+              <span>${fmtCurrency(calc.base, curEl)}</span>
+            </div>` : ''}
             <div class="invoice-total-row">
               <span>${(calc.taxRate === 11) ? 'DPP LAINNYA 11/12' : (calc.taxRate && calc.taxRate > 0 ? `${calc.taxRate}/${calc.taxRate + 1} DPP` : L('DPP','税前金额'))}</span>
               <span>${fmtCurrency(calc.dpp, curEl)}</span>
@@ -2632,6 +2687,8 @@ function buildHistoryDocHTML(doc) {
   }
   return buildDocumentHTML(seller, buyer, products, {
     total: doc.total, dpp: doc.dpp, ppn: doc.ppn, grand: doc.grand,
+    base: (doc.payBase != null && doc.payKind) ? doc.payBase : null,
+    pay: (doc.payBase != null && doc.payKind) ? { kind: doc.payKind, pct: doc.payPct } : null,
     invNo: doc.docNo, invDate: doc.date, orderRef: doc.orderRef || '', notes: doc.notes || '', payment, type: doc.type,
     seal: doc.seal, signature: doc.signature, taxRate: doc.taxRate || 11,
     contractArt5: doc.contractArt5 || '',
@@ -2761,11 +2818,11 @@ async function generatePDF(mode) {
     const seller = state.sellers.find(s => s.id === sellerId);
     const buyer = state.buyers.find(b => b.id === buyerId);
     const payment = seller || null;
-    const resolved = flattenProducts(selected, c.quantities);
-    const total = resolved.reduce((s, p) => s + (Number(p.quantity) || 0) * (Number(p.unitPrice) || 0), 0);
-    const taxRate = parseFloat(document.getElementById(c.taxFld).value) || 0;
-    const dpp = taxRate > 0 ? total * taxRate / (taxRate + 1) : total;
-    const ppn = total * taxRate / 100;
+    // Reuse the shared calculation so PDF numbers always match the preview
+    // (includes down-payment split for invoices).
+    const calc = computeMoneyDoc(mode);
+    const { resolved } = calc;
+    const { total, taxRate, base, pay, dpp, ppn, grand } = calc;
     const invNo = document.getElementById(c.noFld).value;
     const invDate = document.getElementById(c.dateFld).value;
     const orderRefEl = document.getElementById(mode + 'OrderRef');
@@ -2777,7 +2834,7 @@ async function generatePDF(mode) {
     const currencyEl = document.getElementById(c.currencySel);
     const currency = currencyEl ? currencyEl.value : 'IDR';
 
-    const html = buildDocumentHTML(seller, buyer, resolved, { total, dpp, ppn, grand: total + ppn, invNo, invDate, orderRef, notes, payment, type: mode, seal: state.sealData[mode], signature: state.signatureData[mode], taxRate, contractArt5 });
+    const html = buildDocumentHTML(seller, buyer, resolved, { total, base, pay, dpp, ppn, grand, invNo, invDate, orderRef, notes, payment, type: mode, seal: state.sealData[mode], signature: state.signatureData[mode], taxRate, contractArt5 });
 
     container = document.createElement('div');
     container.style.cssText = 'position:fixed;left:0;top:0;width:210mm;z-index:-1;';
@@ -2818,7 +2875,10 @@ async function generatePDF(mode) {
       productIds: selected.map(p => p.id),
       currency: currency,
       taxRate: taxRate,
-      total, dpp, ppn, grand: total + ppn,
+      total, dpp, ppn, grand,
+      payBase: pay ? base : null,
+      payKind: pay ? pay.kind : null,
+      payPct: pay ? pay.pct : null,
       sellerName: seller ? seller.name : '',
       buyerName: buyer ? buyer.name : '',
       seal: state.sealData[mode] || '',
@@ -3029,6 +3089,9 @@ function init() {
   document.getElementById('invoiceBuyerSelect').addEventListener('change', renderInvoicePreview);
   document.getElementById('invoiceCurrencySelect').addEventListener('change', () => { updateInvoiceSummary(); renderInvoicePreview(); });
   document.getElementById('invoiceTaxRate').addEventListener('input', () => { updateInvoiceSummary(); renderInvoicePreview(); });
+  document.getElementById('invoicePayType').addEventListener('change', () => { updateInvoicePayVisibility(); updateInvoiceSummary(); renderInvoicePreview(); });
+  document.getElementById('invoicePayKind').addEventListener('change', () => { updateInvoiceSummary(); renderInvoicePreview(); });
+  document.getElementById('invoicePayPct').addEventListener('change', () => { updateInvoiceSummary(); renderInvoicePreview(); });
   document.getElementById('invoiceNo').addEventListener('input', renderInvoicePreview);
   document.getElementById('invoiceOrderRef').addEventListener('input', renderInvoicePreview);
   document.getElementById('invoiceDate').addEventListener('change', renderInvoicePreview);

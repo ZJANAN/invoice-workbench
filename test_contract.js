@@ -335,5 +335,27 @@ for (const [name, pass] of checks) {
 // Verify the calculation matches the invoice formula
 console.log('\n-- calculation --');
 console.log('total', total, '| dpp', Math.round(dpp), '| ppn', Math.round(ppn), '| grand', Math.round(grand));
+
+// Down-payment invoice: base = Total × pct, dpp = 11/12 × base, ppn = dpp × 0.12, grand = base + ppn
+const origGetEl = sandbox.document.getElementById;
+sandbox.document.getElementById = (id) => ({
+  invoiceTaxRate: { value: '11' },
+  invoicePayType: { value: 'down' },
+  invoicePayKind: { value: 'downpayment' },
+  invoicePayPct: { value: '30' },
+}[id] || null);
+vm.runInContext('state.invoiceSelectedProducts = new Set(["p1", "p2"]);', sandbox);
+const dp = vm.runInContext('computeMoneyDoc("invoice")', sandbox);
+sandbox.document.getElementById = origGetEl;
+const dpBase = total * 0.30;
+checks.push(
+  ['[downpayment] base = Total × 30%', Math.abs(dp.base - dpBase) < 1],
+  ['[downpayment] dpp = 11/12 × base', Math.abs(dp.dpp - dpBase * 11 / 12) < 1],
+  ['[downpayment] ppn = dpp × 0.12', Math.abs(dp.ppn - dpBase * 11 / 12 * 0.12) < 1],
+  ['[downpayment] grand = base + ppn', Math.abs(dp.grand - (dp.base + dp.ppn)) < 1],
+  ['[downpayment] pay row (Downpayment 30%)', !!dp.pay && dp.pay.kind === 'downpayment' && dp.pay.pct === 30],
+);
+console.log('downpayment', Math.round(dp.base), '| dpp', Math.round(dp.dpp), '| ppn', Math.round(dp.ppn), '| grand', Math.round(dp.grand));
+
 console.log('\nRESULT:', ok ? 'ALL PASS' : 'HAS FAILURES');
 process.exit(ok ? 0 : 1);

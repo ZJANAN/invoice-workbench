@@ -7,7 +7,7 @@
   <!-- Cache-busting: bump APP_VERSION on every deploy so browsers always fetch fresh CSS/JS.
        GitHub Pages serves Cache-Control: max-age=600, and without a version query the
        browser keeps the stale copy for ~10 minutes after a deploy. -->
-  <link rel="stylesheet" href="css/styles.css?v=20261027">
+  <link rel="stylesheet" href="css/styles.css?v=20261116">
   <script src="lib/jspdf.umd.min.js"></script>
   <script src="lib/html2canvas.min.js"></script>
   <script src="lib/xlsx.full.min.js"></script>
@@ -199,6 +199,37 @@
               <label class="form-label" data-i18n="gen_tax_rate">税率 (%)</label>
               <input type="number" id="invoiceTaxRate" class="form-input" value="11" min="0" max="100" step="0.5">
             </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="gen_invoice_pay_type">发票类型</label>
+              <select id="invoicePayType" class="form-input">
+                <option value="full" data-i18n="gen_invoice_pay_full">全款单 / Full Payment</option>
+                <option value="down" data-i18n="gen_invoice_pay_down">预付款单 / Down Payment</option>
+              </select>
+            </div>
+            <div class="form-group" id="invoicePayKindGroup" style="display:none">
+              <label class="form-label" data-i18n="gen_invoice_pay_stage">付款阶段</label>
+              <select id="invoicePayKind" class="form-input">
+                <option value="downpayment">Downpayment</option>
+                <option value="finalpayment">Finalpayment</option>
+              </select>
+            </div>
+            <div class="form-group" id="invoicePayPctGroup" style="display:none">
+              <label class="form-label" data-i18n="gen_invoice_pay_pct">百分比 (%)</label>
+              <select id="invoicePayPct" class="form-input">
+                <option value="10">10%</option>
+                <option value="20">20%</option>
+                <option value="25">25%</option>
+                <option value="30" selected>30%</option>
+                <option value="40">40%</option>
+                <option value="50">50%</option>
+                <option value="60">60%</option>
+                <option value="70">70%</option>
+                <option value="75">75%</option>
+                <option value="80">80%</option>
+                <option value="90">90%</option>
+                <option value="100">100%</option>
+              </select>
+            </div>
           </div>
         </div>
         <div class="card">
@@ -237,6 +268,10 @@
             <div class="summary-row">
               <span>Total</span>
               <span id="invoiceSummaryTotal">0.00</span>
+            </div>
+            <div class="summary-row" id="invoiceSummaryPayRow" style="display:none">
+              <span id="invoiceSummaryPayLabel">Downpayment 30%</span>
+              <span id="invoiceSummaryPayValue">0.00</span>
             </div>
             <div class="summary-row">
               <span id="invoiceDppLabel">11/12 DPP</span>
@@ -919,6 +954,6 @@
 <!-- ============ Toast ============ -->
 <div id="toast" class="toast" style="display:none"></div>
 
-<script src="js/app.js?v=20261027"></script>
+<script src="js/app.js?v=20261116"></script>
 </body>
 </html>
