@@ -2516,7 +2516,7 @@ function buildDocumentHTML(seller, buyer, products, calc) {
               ? ((seller && seller.legalRep) || (seller && seller.name) || '')
               : ((seller && seller.name) || ''))}
           </div>
-          <div class="invoice-signature-sub">${L('Seller','卖方')}</div>
+          <div class="invoice-signature-sub">${isInvoice ? 'DIRECTOR' : L('Seller','卖方')}</div>
         </div>
       </div>
       `}

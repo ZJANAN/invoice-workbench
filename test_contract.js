@@ -290,6 +290,9 @@ checks.push(
   ['[signature] quotation signature line has no fixed narrow width', signLines(longQtnHtml).length > 0 && signLines(longQtnHtml).every(t => !/width:/.test(t))],
   ['[signature] delivery signature lines have no fixed narrow width', signLines(longDlvHtml).length === 2 && signLines(longDlvHtml).every(t => !/width:/.test(t))],
   ['[signature] delivery keeps both columns structurally equal (seal placeholder each)', (longDlvHtml.match(/class="invoice-seal-sign-area"/g) || []).length === 2],
+  // Invoice signature label under the signer name is DIRECTOR; quotation keeps Seller / 卖方.
+  ['[signature] invoice signer label is DIRECTOR', longInvHtml.includes('>DIRECTOR<')],
+  ['[signature] quotation signer label unchanged (Seller / 卖方)', longQtnHtml.includes('>Seller / 卖方<')],
 );
 
 // Letterhead = top-left company info, English-only on EVERY document type.
